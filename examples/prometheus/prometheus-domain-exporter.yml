@@ -1,0 +1,38 @@
+groups:
+  - name: prometheus-domain-exporter
+    rules:
+      - alert: domainExporterDown
+        expr: up{job="domain_exporter"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Prometheus Domain Exporter is down
+          description: Prometheus cannot scrape prometheus-domain-exporter.
+
+      - alert: domainExporterCollectionFailed
+        expr: domain_exporter_last_collection_success{job="domain_exporter"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Prometheus Domain Exporter collection is failing
+          description: prometheus-domain-exporter has not completed a successful collection for at least 10 minutes.
+
+      - alert: domainRegistrationLookupFailed
+        expr: domain_registration_lookup_success{job="domain_exporter"} == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Domain registration lookup failed
+          description: prometheus-domain-exporter cannot resolve registration expiration for {{ $labels.domain }}.
+
+      - alert: domainRegistrationExpiringSoon
+        expr: domain_registration_expiration_remaining_seconds{job="domain_exporter"} < 30 * 24 * 60 * 60
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: Domain registration expires soon
+          description: Domain {{ $labels.domain }} registration expires in less than 30 days.
