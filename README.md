@@ -29,7 +29,7 @@ Useful flags:
 --log.format
 ```
 
-By default, the exporter listens on `:9853` and refreshes data every `1m`.
+By default, the exporter listens on `:9853` and refreshes data every `1h`.
 The Docker Compose setup passes `--domain.config-file=/etc/prometheus/prometheus-domain-exporter.yml` explicitly. If no `--domain.config-file` flag is provided, defaults and CLI flags are used; a config file is not required.
 The generated `examples/prometheus-domain-exporter.yml` file lists every supported domain config key with its default value.
 Make, Compose, and smoke defaults use `FEATURE_CONFIG_FILE`, which defaults to `prometheus-domain-exporter.yml`, and pass that path explicitly with `--domain.config-file=...`.
@@ -41,7 +41,7 @@ Configure one or more domains with repeatable `--domain.target` flags. Data refr
 Example output:
 
 ```code
-domain_configured_domains 1
+domain_exporter_configured_domains 1
 domain_registration_lookup_success{domain="example.com"} 1
 domain_registration_lookup_timestamp_seconds{domain="example.com"} 1742812800
 domain_registration_expiration_timestamp_seconds{domain="example.com"} 1893456000

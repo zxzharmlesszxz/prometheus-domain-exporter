@@ -3,6 +3,7 @@ package domaincheck
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,8 @@ const (
 	defaultRDAPBootstrapURL = "https://data.iana.org/rdap/dns.json"
 	defaultRDAPBootstrapTTL = 24 * time.Hour
 )
+
+var errExpirationNotFound = errors.New("expiration event not found")
 
 type RDAPExpirationLookup struct {
 	client       *http.Client
@@ -63,33 +66,71 @@ func newRDAPExpirationLookup(client *http.Client, bootstrapURL string) *RDAPExpi
 	}
 }
 
-func (l *RDAPExpirationLookup) LookupExpiration(ctx context.Context, name string) (time.Time, error) {
-	name, err := Normalize(name)
+func (l *RDAPExpirationLookup) LookupExpiration(ctx context.Context, name string) (_ time.Time, _ bool, err error) {
+	name, err = Normalize(name)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, false, err
 	}
 
 	baseURL, err := l.serviceURL(ctx, tld(name))
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, false, err
 	}
 
 	endpoint := strings.TrimRight(baseURL, "/") + "/domain/" + url.PathEscape(name)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("create RDAP request: %w", err)
+		return time.Time{}, false, fmt.Errorf("create RDAP request: %w", err)
 	}
 	req.Header.Set("Accept", "application/rdap+json, application/json")
 
-	var response rdapDomainResponse
-	if err := l.fetchJSON(req, &response); err != nil {
-		return time.Time{}, err
+	resp, err := l.client.Do(req)
+	if err != nil {
+		return time.Time{}, false, err
 	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close RDAP response body: %w", closeErr)
+		}
+	}()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return time.Time{}, false, nil
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		if readErr != nil {
+			return time.Time{}, false, fmt.Errorf("read RDAP error response body: %w", readErr)
+		}
+		message := strings.TrimSpace(string(body))
+		if message == "" {
+			message = resp.Status
+		}
+		return time.Time{}, false, fmt.Errorf("RDAP request %s returned %s: %s", req.URL.String(), resp.Status, message)
+	}
+	if resp.ContentLength > 1<<20 {
+		return time.Time{}, false, fmt.Errorf("RDAP response body too large: %d bytes (max 1MB)", resp.ContentLength)
+	}
+
+	var response rdapDomainResponse
+	limited := io.LimitReader(resp.Body, 1<<20)
+	if err := json.NewDecoder(limited).Decode(&response); err != nil {
+		return time.Time{}, false, fmt.Errorf("decode RDAP response: %w", err)
+	}
+
+	var peek [1]byte
+	if _, err := resp.Body.Read(peek[:]); err == nil {
+		return time.Time{}, false, fmt.Errorf("RDAP response body exceeds 1MB limit")
+	}
+
 	expiration, err := response.expiration()
 	if err != nil {
-		return time.Time{}, fmt.Errorf("RDAP response for %s: %w", name, err)
+		if !errors.Is(err, errExpirationNotFound) {
+			return time.Time{}, true, err
+		}
+		return time.Time{}, true, nil
 	}
-	return expiration, nil
+	return expiration, true, nil
 }
 
 func (l *RDAPExpirationLookup) serviceURL(ctx context.Context, tld string) (string, error) {
@@ -288,5 +329,5 @@ func (r rdapDomainResponse) expiration() (time.Time, error) {
 	if !fallback.IsZero() {
 		return fallback, nil
 	}
-	return time.Time{}, fmt.Errorf("expiration event not found")
+	return time.Time{}, errExpirationNotFound
 }

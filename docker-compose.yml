@@ -8,7 +8,7 @@ services:
     command:
       - --web.listen-address=:${COMPOSE_EXPORTER_PORT:-9888}
       - --${FEATURE_NAME}.config-file=${FEATURE_CONFIG_CONTAINER_PATH:-/etc/prometheus/prometheus-domain-exporter.yml}
-      - --${FEATURE_NAME}.refresh-interval=30s
+      - --${FEATURE_NAME}.refresh-interval=1h
     configs:
       - source: feature_config
         target: ${FEATURE_CONFIG_CONTAINER_PATH:-/etc/prometheus/prometheus-domain-exporter.yml}

@@ -31,6 +31,12 @@ func CollectFeatureMetrics(ctx featurekit.FeatureMetricsContext[Snapshot], ch ch
 			domain.Name,
 		)
 		ch <- prometheus.MustNewConstMetric(
+			ctx.Descriptors.Get(metricDomainLookupVerified),
+			prometheus.GaugeValue,
+			framework.BoolFloat(domain.Verified),
+			domain.Name,
+		)
+		ch <- prometheus.MustNewConstMetric(
 			ctx.Descriptors.Get(metricDomainLookupTimestamp),
 			prometheus.GaugeValue,
 			framework.UnixTimestamp(domain.LookupTime),

@@ -6,6 +6,7 @@ const (
 	metricDomainExpirationRemaining = "domain_expiration_remaining"
 	metricDomainExpirationTimestamp = "domain_expiration_timestamp"
 	metricDomainLookupSuccess       = "domain_lookup_success"
+	metricDomainLookupVerified      = "domain_lookup_verified"
 	metricDomainLookupTimestamp     = "domain_lookup_timestamp"
 	metricDomainConfiguredTotal     = "domain_configured_total"
 )
@@ -34,6 +35,13 @@ var featureMetricSpecs = []featurekit.FeatureMetricSpec{
 		Scope:  featurekit.MetricScopeFeature,
 		Name:   "_registration_lookup_success",
 		Help:   "Whether the last domain registration lookup succeeded",
+		Labels: domainLabels,
+	},
+	{
+		ID:     metricDomainLookupVerified,
+		Scope:  featurekit.MetricScopeFeature,
+		Name:   "_registration_lookup_verified",
+		Help:   "Whether the last domain registration lookup confirmed the domain exists",
 		Labels: domainLabels,
 	},
 	{

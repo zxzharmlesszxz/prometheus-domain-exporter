@@ -10,11 +10,12 @@ type Result struct {
 	LookupTime time.Time
 	Expiration time.Time
 	Success    bool
+	Verified   bool
 	Err        error
 }
 
 type ExpirationLookup interface {
-	LookupExpiration(context.Context, string) (time.Time, error)
+	LookupExpiration(context.Context, string) (expiration time.Time, verified bool, err error)
 }
 
 type Snapshot struct {

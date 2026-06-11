@@ -36,3 +36,21 @@ groups:
         annotations:
           summary: Domain registration expires soon
           description: Domain {{ $labels.domain }} registration expires in less than 30 days.
+
+      - alert: domainRegistrationExpiringIn7Days
+        expr: domain_registration_expiration_remaining_seconds{job="domain_exporter"} < 7 * 24 * 60 * 60
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: Domain registration expiring in 7 days
+          description: Domain {{ $labels.domain }} registration expires in less than 7 days.
+
+      - alert: domainRegistrationLookupIncomplete
+        expr: (domain_exporter_configured_domains{job="domain_exporter"} - count(domain_registration_lookup_success{job="domain_exporter"})) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Some domains not yet looked up
+          description: '{{ $value | humanize }} configured domain(s) have not completed a successful registration lookup.'

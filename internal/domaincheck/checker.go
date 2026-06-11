@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"golang.org/x/net/idna"
 )
 
 const (
@@ -71,14 +73,20 @@ func (c Checker) Snapshot(ctx context.Context, now time.Time) Snapshot {
 			defer wg.Done()
 			for job := range jobs {
 				domainCtx, cancel := context.WithTimeout(ctx, lookupTimeout)
-				expiration, err := lookup.LookupExpiration(domainCtx, job.Name)
+				expiration, verified, err := lookup.LookupExpiration(domainCtx, job.Name)
 				cancel()
 
+				name := job.Name
+				if unicodeName, err := idna.ToUnicode(job.Name); err == nil {
+					name = unicodeName
+				}
+
 				results[job.Index] = Result{
-					Name:       job.Name,
+					Name:       name,
 					LookupTime: now,
 					Expiration: expiration,
 					Success:    err == nil,
+					Verified:   verified,
 					Err:        err,
 				}
 			}
@@ -102,10 +110,10 @@ sendJobs:
 		if i >= sentJobs {
 			break
 		}
-		if result.Err != nil {
+		if targetErr := fullCollectionTargetError(result); targetErr != nil {
 			snapshot.Success = false
 			if firstLookupErr == nil {
-				firstLookupErr = fmt.Errorf("lookup %s registration expiration: %w", result.Name, result.Err)
+				firstLookupErr = fmt.Errorf("lookup %s registration expiration: %w", result.Name, targetErr)
 			}
 		}
 		snapshot.Domains = append(snapshot.Domains, result)
@@ -121,6 +129,19 @@ sendJobs:
 		snapshot.Err = firstLookupErr
 	}
 	return snapshot
+}
+
+func fullCollectionTargetError(result Result) error {
+	if result.Err != nil {
+		return result.Err
+	}
+	if !result.Verified {
+		return fmt.Errorf("domain was not verified by RDAP")
+	}
+	if result.Expiration.IsZero() {
+		return fmt.Errorf("registration expiration was not found")
+	}
+	return nil
 }
 
 func normalizeLookupTimeout(timeout time.Duration) time.Duration {

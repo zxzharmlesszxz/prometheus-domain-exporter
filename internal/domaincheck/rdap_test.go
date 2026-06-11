@@ -27,9 +27,12 @@ func TestRDAPExpirationLookup(t *testing.T) {
 	defer server.Close()
 
 	lookup := newRDAPExpirationLookup(server.Client(), server.URL+"/dns.json")
-	got, err := lookup.LookupExpiration(context.Background(), "Example.EXAMPLE.")
+	got, verified, err := lookup.LookupExpiration(context.Background(), "Example.EXAMPLE.")
 	if err != nil {
 		t.Fatalf("LookupExpiration() error = %v, want nil", err)
+	}
+	if !verified {
+		t.Fatal("LookupExpiration() verified = false, want true")
 	}
 	want, err := time.Parse(time.RFC3339, expiration)
 	if err != nil {
@@ -56,8 +59,37 @@ func TestRDAPExpirationLookupReportsMissingExpiration(t *testing.T) {
 	defer server.Close()
 
 	lookup := newRDAPExpirationLookup(server.Client(), server.URL+"/dns.json")
-	if _, err := lookup.LookupExpiration(context.Background(), "example.example"); err == nil {
-		t.Fatal("LookupExpiration() error = nil, want error")
+	_, verified, err := lookup.LookupExpiration(context.Background(), "example.example")
+	if err != nil {
+		t.Fatalf("LookupExpiration() error = %v, want nil (domain exists, no expiration)", err)
+	}
+	if !verified {
+		t.Fatal("LookupExpiration() verified = false, want true (domain exists)")
+	}
+}
+
+func TestRDAPExpirationLookupReportsMalformedExpiration(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/dns.json":
+			writeResponsef(t, w, `{"services":[[["example"],["%s/rdap/"]]]}`, serverURL(t, r))
+		case "/rdap/domain/example.example":
+			writeResponse(t, w, `{"events":[{"eventAction":"registration expiration","eventDate":"not-a-timestamp"}]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	lookup := newRDAPExpirationLookup(server.Client(), server.URL+"/dns.json")
+	_, verified, err := lookup.LookupExpiration(context.Background(), "example.example")
+	if err == nil {
+		t.Fatal("LookupExpiration() error = nil, want malformed expiration error")
+	}
+	if !verified {
+		t.Fatal("LookupExpiration() verified = false, want true (domain exists)")
 	}
 }
 
@@ -74,8 +106,33 @@ func TestRDAPExpirationLookupReportsMissingService(t *testing.T) {
 	defer server.Close()
 
 	lookup := newRDAPExpirationLookup(server.Client(), server.URL+"/dns.json")
-	if _, err := lookup.LookupExpiration(context.Background(), "example.example"); err == nil {
+	if _, _, err := lookup.LookupExpiration(context.Background(), "example.example"); err == nil {
 		t.Fatal("LookupExpiration() error = nil, want missing service error")
+	}
+}
+
+func TestRDAPExpirationLookupReportsNotFound(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/dns.json":
+			writeResponsef(t, w, `{"services":[[["example"],["%s/rdap/"]]]}`, serverURL(t, r))
+		case "/rdap/domain/example.example":
+			http.NotFound(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	lookup := newRDAPExpirationLookup(server.Client(), server.URL+"/dns.json")
+	_, verified, err := lookup.LookupExpiration(context.Background(), "example.example")
+	if err != nil {
+		t.Fatalf("LookupExpiration() error = %v, want nil (not found is not a network error)", err)
+	}
+	if verified {
+		t.Fatal("LookupExpiration() verified = true, want false (domain does not exist)")
 	}
 }
 
@@ -95,7 +152,7 @@ func TestRDAPExpirationLookupReportsHTTPError(t *testing.T) {
 	defer server.Close()
 
 	lookup := newRDAPExpirationLookup(server.Client(), server.URL+"/dns.json")
-	if _, err := lookup.LookupExpiration(context.Background(), "example.example"); err == nil {
+	if _, _, err := lookup.LookupExpiration(context.Background(), "example.example"); err == nil {
 		t.Fatal("LookupExpiration() error = nil, want HTTP error")
 	}
 }

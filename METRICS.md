@@ -5,14 +5,23 @@
 All domain registration metrics use a `domain` label containing the normalized
 domain name configured with `--domain.target`.
 
-`domain_configured_domains`
+`domain_exporter_configured_domains`
 
 Number of configured domain targets in the current snapshot.
 
 `domain_registration_lookup_success`
 
-Whether the last registration lookup for the domain succeeded.
-Successful lookups have value `1`; failed lookups have value `0`.
+Whether the RDAP HTTP request for the domain succeeded (network/infra
+health). A successful HTTP response has value `1`; network timeouts,
+connection errors, or non-404 HTTP errors have value `0`.
+
+`domain_registration_lookup_verified`
+
+Whether the RDAP response confirmed the domain is registered (domain
+config health). A confirmed domain has value `1`; an HTTP 404 Not
+Found (unregistered domain) has value `0` even though the lookup
+itself succeeded. This metric is emitted for every configured domain
+regardless of lookup outcome.
 
 `domain_registration_lookup_timestamp_seconds`
 
@@ -34,7 +43,8 @@ expiration.
 `domain_exporter_last_collection_success`
 
 Whether the last refresh succeeded.
-The value is `0` when any configured domain lookup fails.
+The value is `0` when any configured domain lookup fails, is not verified as
+registered by RDAP, or does not provide a registration expiration timestamp.
 
 `domain_exporter_last_collection_timestamp_seconds`
 

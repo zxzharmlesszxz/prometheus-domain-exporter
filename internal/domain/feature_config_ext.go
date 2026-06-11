@@ -16,10 +16,13 @@ type Config struct {
 	Targets              []string
 	Timeout              time.Duration
 	MaxConcurrentTargets int
+
+	timeoutConfigured       bool
+	maxConcurrentConfigured bool
 }
 
 const (
-	DefaultRefreshInterval      = 5 * time.Minute
+	DefaultRefreshInterval      = time.Hour
 	DefaultTimeout              = domaincheck.DefaultTimeout
 	DefaultMaxConcurrentTargets = domaincheck.DefaultMaxConcurrentTargets
 )
@@ -46,6 +49,7 @@ var featureConfigFlagSpecs = []featurekit.FeatureConfigFlagSpec[Config]{
 		Help: "Timeout for each domain registration lookup (default: 10s)",
 		Bind: func(flag *kingpin.FlagClause, config *Config) {
 			flag.DurationVar(&config.Timeout)
+			flag.IsSetByUser(&config.timeoutConfigured)
 		},
 	},
 	{
@@ -54,6 +58,7 @@ var featureConfigFlagSpecs = []featurekit.FeatureConfigFlagSpec[Config]{
 		Default: fmt.Sprint(DefaultMaxConcurrentTargets),
 		Bind: func(flag *kingpin.FlagClause, config *Config) {
 			flag.IntVar(&config.MaxConcurrentTargets)
+			flag.IsSetByUser(&config.maxConcurrentConfigured)
 		},
 	},
 }
@@ -106,14 +111,14 @@ func ResolveFeatureConfig(featureName string, config Config) (Config, string, bo
 	}
 
 	if loaded {
-		if fileConfig.Timeout != "" && (config.Timeout == DefaultTimeout || config.Timeout <= 0) {
+		if fileConfig.Timeout != "" && !config.timeoutConfigured {
 			t, err := time.ParseDuration(fileConfig.Timeout)
 			if err != nil {
 				return config, cfgFile, true, fmt.Errorf("parse timeout from %q: %w", cfgFile, err)
 			}
 			config.Timeout = t
 		}
-		if fileConfig.MaxConcurrentTargets > 0 && (config.MaxConcurrentTargets == DefaultMaxConcurrentTargets || config.MaxConcurrentTargets <= 0) {
+		if fileConfig.MaxConcurrentTargets > 0 && !config.maxConcurrentConfigured {
 			config.MaxConcurrentTargets = fileConfig.MaxConcurrentTargets
 		}
 		config.Targets = append(fileConfig.Targets, config.Targets...)

@@ -5,12 +5,10 @@ go 1.26.0
 require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/prometheus/client_golang v1.23.2
-	github.com/zxzharmlesszxz/prometheus-exporter-framework v0.2.11
+	github.com/zxzharmlesszxz/prometheus-exporter-framework v0.2.12
 )
 
-require (
-	golang.org/x/net v0.55.0
-)
+require golang.org/x/net v0.56.0
 
 require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b // indirect

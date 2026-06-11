@@ -11,14 +11,19 @@ import (
 
 type fakeExpirationLookup struct {
 	expirations map[string]time.Time
+	verified    map[string]bool
 	errors      map[string]error
 }
 
-func (l fakeExpirationLookup) LookupExpiration(_ context.Context, domain string) (time.Time, error) {
+func (l fakeExpirationLookup) LookupExpiration(_ context.Context, domain string) (time.Time, bool, error) {
 	if err := l.errors[domain]; err != nil {
-		return time.Time{}, err
+		return time.Time{}, false, err
 	}
-	return l.expirations[domain], nil
+	verified := true
+	if l.verified != nil {
+		verified = l.verified[domain]
+	}
+	return l.expirations[domain], verified, nil
 }
 
 func TestCheckerCollectsDomainExpirations(t *testing.T) {
@@ -177,7 +182,7 @@ type fakeConcurrentLookup struct {
 	maxSeen     *int
 }
 
-func (l fakeConcurrentLookup) LookupExpiration(_ context.Context, _ string) (time.Time, error) {
+func (l fakeConcurrentLookup) LookupExpiration(_ context.Context, _ string) (time.Time, bool, error) {
 	l.mu.Lock()
 	*l.concurrency++
 	if *l.concurrency > *l.maxSeen {
@@ -191,7 +196,7 @@ func (l fakeConcurrentLookup) LookupExpiration(_ context.Context, _ string) (tim
 	*l.concurrency--
 	l.mu.Unlock()
 
-	return l.expiration, nil
+	return l.expiration, true, nil
 }
 
 func TestSnapshotRespectsContextCancellation(t *testing.T) {
@@ -240,5 +245,64 @@ func TestCheckerMarksDomainLookupFailures(t *testing.T) {
 	}
 	if len(snapshot.Domains) != 1 || snapshot.Domains[0].Success {
 		t.Fatalf("Snapshot().Domains = %+v, want failed domain result", snapshot.Domains)
+	}
+}
+
+func TestCheckerMarksUnverifiedDomainsAsFullCollectionFailure(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_700_000_000, 0)
+	snapshot := Checker{
+		Targets: []string{"missing.example"},
+		Lookup: fakeExpirationLookup{
+			verified: map[string]bool{"missing.example": false},
+		},
+	}.Snapshot(context.Background(), now)
+
+	if snapshot.Success {
+		t.Fatal("Snapshot().Success = true, want false for unverified domain")
+	}
+	if snapshot.Err == nil {
+		t.Fatal("Snapshot().Err = nil, want unverified domain error")
+	}
+	if len(snapshot.Domains) != 1 {
+		t.Fatalf("Snapshot().Domains length = %d, want 1", len(snapshot.Domains))
+	}
+	if !snapshot.Domains[0].Success {
+		t.Fatal("domain lookup success = false, want true because RDAP lookup completed")
+	}
+	if snapshot.Domains[0].Verified {
+		t.Fatal("domain verified = true, want false")
+	}
+}
+
+func TestCheckerMarksMissingExpirationAsFullCollectionFailure(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_700_000_000, 0)
+	snapshot := Checker{
+		Targets: []string{"example.com"},
+		Lookup: fakeExpirationLookup{
+			verified: map[string]bool{"example.com": true},
+		},
+	}.Snapshot(context.Background(), now)
+
+	if snapshot.Success {
+		t.Fatal("Snapshot().Success = true, want false for missing expiration")
+	}
+	if snapshot.Err == nil {
+		t.Fatal("Snapshot().Err = nil, want missing expiration error")
+	}
+	if len(snapshot.Domains) != 1 {
+		t.Fatalf("Snapshot().Domains length = %d, want 1", len(snapshot.Domains))
+	}
+	if !snapshot.Domains[0].Success {
+		t.Fatal("domain lookup success = false, want true because RDAP lookup completed")
+	}
+	if !snapshot.Domains[0].Verified {
+		t.Fatal("domain verified = false, want true")
+	}
+	if !snapshot.Domains[0].Expiration.IsZero() {
+		t.Fatalf("domain expiration = %v, want zero", snapshot.Domains[0].Expiration)
 	}
 }
