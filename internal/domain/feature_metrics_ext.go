@@ -17,6 +17,8 @@ func NewFeatureMetricHandlers() featurekit.FeatureMetricHandlers[Snapshot] {
 }
 
 func CollectFeatureMetrics(ctx featurekit.FeatureMetricsContext[Snapshot], ch chan<- prometheus.Metric, snapshot Snapshot, now time.Time) {
+	collectRDAPSourceMetrics(ctx, ch, snapshot)
+
 	ch <- prometheus.MustNewConstMetric(
 		ctx.Descriptors.Get(metricDomainConfiguredTotal),
 		prometheus.GaugeValue,
@@ -58,6 +60,20 @@ func CollectFeatureMetrics(ctx featurekit.FeatureMetricsContext[Snapshot], ch ch
 			domain.Name,
 		)
 	}
+}
+
+func collectRDAPSourceMetrics(ctx featurekit.FeatureMetricsContext[Snapshot], ch chan<- prometheus.Metric, snapshot Snapshot) {
+	result := snapshot.RDAPResult
+	if result.Path == "" {
+		return
+	}
+	labelValues := []string{result.Path}
+	ch <- prometheus.MustNewConstMetric(ctx.Descriptors.Get(rdapMetricIDs.MTimeSeconds), prometheus.GaugeValue, result.MTimeSeconds, labelValues...)
+	ch <- prometheus.MustNewConstMetric(ctx.Descriptors.Get(rdapMetricIDs.Up), prometheus.GaugeValue, framework.BoolFloat(result.Up), labelValues...)
+	ch <- prometheus.MustNewConstMetric(ctx.Descriptors.Get(rdapMetricIDs.Valid), prometheus.GaugeValue, framework.BoolFloat(snapshot.domain.Success), labelValues...)
+	ch <- prometheus.MustNewConstMetric(ctx.Descriptors.Get(rdapMetricIDs.ReadErrorsTotal), prometheus.CounterValue, float64(result.ReadErrorsTotal), labelValues...)
+	ch <- prometheus.MustNewConstMetric(ctx.Descriptors.Get(rdapMetricIDs.ParseErrorsTotal), prometheus.CounterValue, float64(result.ParseErrorsTotal), labelValues...)
+	ch <- prometheus.MustNewConstMetric(ctx.Descriptors.Get(rdapMetricIDs.ScrapeDurationSeconds), prometheus.GaugeValue, result.ScrapeDurationSeconds, labelValues...)
 }
 
 func LogFeatureSnapshotError(ctx featurekit.FeatureMetricsContext[Snapshot], logger *slog.Logger, snapshot Snapshot) {

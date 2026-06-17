@@ -36,28 +36,60 @@ Make, Compose, and smoke defaults use `FEATURE_CONFIG_FILE`, which defaults to `
 Runtime config can always be overridden with another `--domain.config-file=...` value.
 Configure one or more domains with repeatable `--domain.target` flags. Data refresh runs through the framework snapshot collector in a background worker; scrapes return the last collected snapshot.
 
+## Configuration Example
+
+The YAML config file accepts these domain-specific keys:
+
+```yaml
+targets:
+  - example.com
+  - example.net
+timeout: 10s
+max_concurrent_targets: 8
+```
+
+`targets` may be empty when the exporter should start with framework/runtime
+metrics only:
+
+```yaml
+targets: []
+timeout: 10s
+max_concurrent_targets: 8
+```
+
 ## Metrics
 
 Example output:
 
-```code
+```text
 domain_exporter_configured_domains 1
 domain_registration_lookup_success{domain="example.com"} 1
+domain_registration_lookup_verified{domain="example.com"} 1
 domain_registration_lookup_timestamp_seconds{domain="example.com"} 1742812800
 domain_registration_expiration_timestamp_seconds{domain="example.com"} 1893456000
 domain_registration_expiration_remaining_seconds{domain="example.com"} 150643200
+domain_rdap_up{source="rdap"} 1
+domain_rdap_valid{source="rdap"} 1
+domain_rdap_scrape_duration_seconds{source="rdap"} 0.452
+domain_rdap_read_errors_total{source="rdap"} 0
+domain_rdap_parse_errors_total{source="rdap"} 0
 domain_exporter_last_collection_success 1
 domain_exporter_last_collection_timestamp_seconds 1742812800
 domain_exporter_last_successful_collection_timestamp_seconds 1742812800
 ```
 
-The full metric contract lives in [`METRICS.md`](METRICS.md).
+Domain metrics use the `domain` feature namespace. Framework-owned exporter
+collection metrics use the `domain_exporter` metric namespace. The full metric
+contract lives in [`METRICS.md`](METRICS.md).
 
 ## Docker Compose
 
 The repository includes [`docker-compose.yml`](docker-compose.yml) for local testing.
 The Prometheus scrape config is embedded in Compose, while alerting rules live
 under [`examples/prometheus`](examples/prometheus).
+The bundled rules cover exporter availability, framework collection
+failure/staleness, RDAP source health, per-domain lookup failure, expiration
+windows, and incomplete lookup coverage.
 It starts:
 
 - `exporter`
@@ -85,6 +117,10 @@ Docker Compose provisions Grafana with:
 - default login `admin` / `admin`
 
 Open `http://localhost:3000` after `make compose`.
+The main dashboard uses the Grafana v2 dashboard resource model and includes
+domain status stats, bad-domain and timing tables, RDAP source-health graphs,
+historical changes, exporter collection health, Go runtime panels, and
+Prometheus scrape health.
 
 For a direct Docker build, run:
 
@@ -116,8 +152,8 @@ Go files named `scaffold_*.go` are generated contract glue and should stay
 identical to the scaffold output. Add exporter-specific behavior in adjacent
 non-scaffold files such as `feature_config_ext.go`, `feature_metrics_ext.go`,
 `feature_snapshotter_ext.go`, `feature_smoke_ext.go`, `metrics.go`, and the
-domain check package. The feature package `Snapshot` alias lives in
-`scaffold_snapshot_types.go`; the actual snapshot structure lives in
+domain check package. The feature package `Snapshot` aggregate lives in
+`snapshot_types.go`; the RDAP/domain engine snapshot lives in
 `internal/domaincheck`.
 
 Build local release artifacts:

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	framework "github.com/zxzharmlesszxz/prometheus-exporter-framework/exporter"
@@ -35,9 +36,48 @@ func FeatureSnapshotStatus(snapshot Snapshot) framework.SnapshotStatus {
 
 func newSnapshotEngine(config Config) (featurekit.SnapshotEngine[Snapshot], error) {
 	checker := domaincheck.NewChecker(config.Targets, config.Timeout, config.MaxConcurrentTargets)
+	var readErrors atomic.Uint64
+	var parseErrors atomic.Uint64
+
 	return featurekit.SnapshotEngineFunc[Snapshot](func(ctx context.Context, now time.Time) Snapshot {
+		start := time.Now()
+		domainSnapshot := checker.Snapshot(ctx, now)
+		readErrorCount, parseErrorCount := classifyRDAPSourceErrors(domainSnapshot)
+		if readErrorCount > 0 {
+			readErrors.Add(readErrorCount)
+		}
+		if parseErrorCount > 0 {
+			parseErrors.Add(parseErrorCount)
+		}
+
 		return Snapshot{
-			domain: checker.Snapshot(ctx, now),
+			domain: domainSnapshot,
+			RDAPResult: framework.FileScrapeResult{
+				Path:                  "rdap",
+				Up:                    readErrorCount == 0,
+				MTimeSeconds:          float64(now.Unix()),
+				ReadErrorsTotal:       readErrors.Load(),
+				ParseErrorsTotal:      parseErrors.Load(),
+				ScrapeDurationSeconds: time.Since(start).Seconds(),
+			},
 		}
 	}), nil
+}
+
+func classifyRDAPSourceErrors(snapshot domaincheck.Snapshot) (uint64, uint64) {
+	var readErrors uint64
+	var parseErrors uint64
+	for _, result := range snapshot.Domains {
+		if result.Err != nil {
+			readErrors++
+			continue
+		}
+		if !result.Verified || result.Expiration.IsZero() {
+			parseErrors++
+		}
+	}
+	if snapshot.Err != nil && len(snapshot.Domains) == 0 {
+		readErrors++
+	}
+	return readErrors, parseErrors
 }

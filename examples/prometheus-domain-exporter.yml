@@ -1,3 +1,15 @@
+# Exporter config keys:
+# - targets: []
+# - timeout: 10s
+# - max_concurrent_targets: 8
+#
+# Examples:
+# targets:
+#   - example.com
+#   - example.net
+# timeout: 10s
+# max_concurrent_targets: 8
+#
 targets: []
 timeout: 10s
 max_concurrent_targets: 8

@@ -9,13 +9,19 @@ const (
 	metricDomainLookupVerified      = "domain_lookup_verified"
 	metricDomainLookupTimestamp     = "domain_lookup_timestamp"
 	metricDomainConfiguredTotal     = "domain_configured_total"
+
+	metricRDAPSource = "rdap"
 )
+
+var rdapMetricIDs = featurekit.FileScrapeMetricIDsFor(metricRDAPSource)
 
 var domainLabels = []string{
 	"domain",
 }
 
-var featureMetricSpecs = []featurekit.FeatureMetricSpec{
+var rdapMetricSpecs = featurekit.FileScrapeMetricSpecs(metricRDAPSource, []string{"source"})
+
+var domainMetricSpecs = []featurekit.FeatureMetricSpec{
 	{
 		ID:     metricDomainExpirationRemaining,
 		Scope:  featurekit.MetricScopeFeature,
@@ -58,3 +64,5 @@ var featureMetricSpecs = []featurekit.FeatureMetricSpec{
 		Help:  "Number of configured targets",
 	},
 }
+
+var featureMetricSpecs = append(domainMetricSpecs, rdapMetricSpecs...)

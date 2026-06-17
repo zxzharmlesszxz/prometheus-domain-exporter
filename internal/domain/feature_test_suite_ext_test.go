@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	framework "github.com/zxzharmlesszxz/prometheus-exporter-framework/exporter"
 	"github.com/zxzharmlesszxz/prometheus-exporter-framework/exporter/exportertest"
 	"github.com/zxzharmlesszxz/prometheus-exporter-framework/exporter/exportertest/featuretest"
 
@@ -92,6 +93,13 @@ func testCollectorExportsSnapshot(t *testing.T, suite *FeatureTestSuite) {
 				},
 			},
 		},
+		RDAPResult: framework.FileScrapeResult{
+			Path:                  "rdap",
+			Up:                    true,
+			ReadErrorsTotal:       0,
+			ParseErrorsTotal:      0,
+			ScrapeDurationSeconds: 0.25,
+		},
 	}), testRefreshInterval, func() time.Time { return now })
 
 	families := exportertest.RegisterAndGather(t, collector)
@@ -100,6 +108,11 @@ func testCollectorExportsSnapshot(t *testing.T, suite *FeatureTestSuite) {
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupTimestamp), labels, float64(now.Unix()))
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainExpirationTimestamp), labels, float64(expiration.Unix()))
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainExpirationRemaining), labels, expiration.Sub(now).Seconds())
+	sourceLabels := map[string]string{"source": "rdap"}
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.Up), sourceLabels, 1)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.Valid), sourceLabels, 1)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.ReadErrorsTotal), sourceLabels, 0)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.ParseErrorsTotal), sourceLabels, 0)
 	exportertest.AssertMetricValue(t, families, testLastSuccess, nil, 1)
 	exportertest.AssertMetricValue(t, families, testLastTimestamp, nil, float64(now.Unix()))
 	exportertest.AssertMetricValue(t, families, testLastSuccessfulTS, nil, float64(now.Unix()))
@@ -121,12 +134,23 @@ func testCollectorExportsFailedDomainLookup(t *testing.T, suite *FeatureTestSuit
 			},
 			Err: errors.New("lookup example.com registration expiration: rdap unavailable"),
 		},
+		RDAPResult: framework.FileScrapeResult{
+			Path:                  "rdap",
+			Up:                    false,
+			ReadErrorsTotal:       1,
+			ParseErrorsTotal:      0,
+			ScrapeDurationSeconds: 0.25,
+		},
 	}), testRefreshInterval, func() time.Time { return now })
 
 	families := exportertest.RegisterAndGather(t, collector)
 	labels := map[string]string{"domain": "example.com"}
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupSuccess), labels, 0)
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupTimestamp), labels, float64(now.Unix()))
+	sourceLabels := map[string]string{"source": "rdap"}
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.Up), sourceLabels, 0)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.Valid), sourceLabels, 0)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.ReadErrorsTotal), sourceLabels, 1)
 	if _, ok := exportertest.MetricValue(families, suite.MetricName(testFeatureName, "", metricDomainExpirationTimestamp), labels); ok {
 		t.Fatal("expiration timestamp metric was emitted for failed lookup")
 	}

@@ -2,7 +2,7 @@ groups:
   - name: prometheus-domain-exporter
     rules:
       - alert: domainExporterDown
-        expr: up{job="domain_exporter"} == 0
+        expr: up{job=~"^(prometheus[_-])?domain[_-]exporter$"} == 0
         for: 5m
         labels:
           severity: warning
@@ -11,7 +11,7 @@ groups:
           description: Prometheus cannot scrape prometheus-domain-exporter.
 
       - alert: domainExporterCollectionFailed
-        expr: domain_exporter_last_collection_success{job="domain_exporter"} == 0
+        expr: domain_exporter_last_collection_success{job=~"^(prometheus[_-])?domain[_-]exporter$"} == 0
         for: 10m
         labels:
           severity: warning
@@ -19,8 +19,53 @@ groups:
           summary: Prometheus Domain Exporter collection is failing
           description: prometheus-domain-exporter has not completed a successful collection for at least 10 minutes.
 
+      - alert: domainExporterCollectionStale
+        expr: time() - (domain_exporter_last_successful_collection_timestamp_seconds{job=~"^(prometheus[_-])?domain[_-]exporter$"} > 0) > 300
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Prometheus Domain Exporter collection is stale
+          description: prometheus-domain-exporter has not refreshed domain data successfully for more than 5 minutes.
+
+      - alert: domainRDAPSourceDown
+        expr: domain_rdap_up{job=~"^(prometheus[_-])?domain[_-]exporter$"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Domain RDAP source is unavailable
+          description: prometheus-domain-exporter cannot collect RDAP data on {{ $labels.instance }}.
+
+      - alert: domainRDAPSourceInvalid
+        expr: domain_rdap_up{job=~"^(prometheus[_-])?domain[_-]exporter$"} == 1 and domain_rdap_valid{job=~"^(prometheus[_-])?domain[_-]exporter$"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Domain RDAP source is readable but invalid
+          description: prometheus-domain-exporter collected RDAP data on {{ $labels.instance }}, but one or more configured domains could not be interpreted successfully.
+
+      - alert: domainRDAPReadErrors
+        expr: increase(domain_rdap_read_errors_total{job=~"^(prometheus[_-])?domain[_-]exporter$"}[30m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Domain RDAP read errors observed
+          description: prometheus-domain-exporter observed one or more RDAP read/lookup errors in the last 30 minutes.
+
+      - alert: domainRDAPParseErrors
+        expr: increase(domain_rdap_parse_errors_total{job=~"^(prometheus[_-])?domain[_-]exporter$"}[30m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Domain RDAP parse errors observed
+          description: prometheus-domain-exporter observed one or more RDAP parse/validity errors in the last 30 minutes.
+
       - alert: domainRegistrationLookupFailed
-        expr: domain_registration_lookup_success{job="domain_exporter"} == 0
+        expr: domain_registration_lookup_success{job=~"^(prometheus[_-])?domain[_-]exporter$"} == 0
         for: 15m
         labels:
           severity: warning
@@ -29,7 +74,7 @@ groups:
           description: prometheus-domain-exporter cannot resolve registration expiration for {{ $labels.domain }}.
 
       - alert: domainRegistrationExpiringSoon
-        expr: domain_registration_expiration_remaining_seconds{job="domain_exporter"} < 30 * 24 * 60 * 60
+        expr: domain_registration_expiration_remaining_seconds{job=~"^(prometheus[_-])?domain[_-]exporter$"} < 30 * 24 * 60 * 60
         for: 30m
         labels:
           severity: warning
@@ -38,7 +83,7 @@ groups:
           description: Domain {{ $labels.domain }} registration expires in less than 30 days.
 
       - alert: domainRegistrationExpiringIn7Days
-        expr: domain_registration_expiration_remaining_seconds{job="domain_exporter"} < 7 * 24 * 60 * 60
+        expr: domain_registration_expiration_remaining_seconds{job=~"^(prometheus[_-])?domain[_-]exporter$"} < 7 * 24 * 60 * 60
         for: 30m
         labels:
           severity: critical
@@ -47,7 +92,7 @@ groups:
           description: Domain {{ $labels.domain }} registration expires in less than 7 days.
 
       - alert: domainRegistrationLookupIncomplete
-        expr: (domain_exporter_configured_domains{job="domain_exporter"} - count(domain_registration_lookup_success{job="domain_exporter"})) > 0
+        expr: (domain_exporter_configured_domains{job=~"^(prometheus[_-])?domain[_-]exporter$"} - count(domain_registration_lookup_success{job=~"^(prometheus[_-])?domain[_-]exporter$"})) > 0
         for: 15m
         labels:
           severity: warning
