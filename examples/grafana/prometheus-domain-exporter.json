@@ -35,8 +35,8 @@
         "kind": "Panel",
         "spec": {
           "id": 1,
-          "title": "Collection Success",
-          "description": "Ratio of exporter instances whose last framework collection succeeded.",
+          "title": "Full Collection Success",
+          "description": "Whether every selected exporter instance completed its last framework collection successfully.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -54,8 +54,8 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum(domain_exporter_last_collection_success{job=~\"$job\"}) / count(domain_exporter_last_collection_success{job=~\"$job\"})",
-                        "legendFormat": "success ratio",
+                        "expr": "min(domain_exporter_last_collection_success{job=~\"$job\"})",
+                        "legendFormat": "full success",
                         "range": false,
                         "instant": true
                       }
@@ -4171,7 +4171,7 @@
         "spec": {
           "id": 40,
           "title": "Lookup Coverage",
-          "description": "Share of configured checks with an emitted chain verification result",
+          "description": "Share of configured domains with an emitted registration lookup status metric",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -4190,7 +4190,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": false,
-                        "expr": "(count(domain_registration_lookup_verified{job=~\"$job\"}) or vector(0)) / (count(domain_registration_lookup_success{job=~\"$job\"}) or vector(1))",
+                        "expr": "(count(domain_registration_lookup_success{job=~\"$job\"}) or vector(0)) / clamp_min(sum(domain_exporter_configured_domains{job=~\"$job\"}) or vector(0), 1)",
                         "instant": true,
                         "legendFormat": "coverage",
                         "range": false
@@ -5857,7 +5857,7 @@
                                   "height": 4,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-45"
+                                    "name": "panel-40"
                                   }
                                 }
                               },
@@ -5870,7 +5870,7 @@
                                   "height": 4,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-40"
+                                    "name": "panel-45"
                                   }
                                 }
                               },

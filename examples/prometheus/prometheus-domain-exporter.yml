@@ -20,13 +20,13 @@ groups:
           description: prometheus-domain-exporter has not completed a successful collection for at least 10 minutes.
 
       - alert: domainExporterCollectionStale
-        expr: time() - (domain_exporter_last_successful_collection_timestamp_seconds{job=~"^(prometheus[_-])?domain[_-]exporter$"} > 0) > 300
+        expr: time() - (domain_exporter_last_successful_collection_timestamp_seconds{job=~"^(prometheus[_-])?domain[_-]exporter$"} > 0) > 7200
         for: 10m
         labels:
           severity: warning
         annotations:
           summary: Prometheus Domain Exporter collection is stale
-          description: prometheus-domain-exporter has not refreshed domain data successfully for more than 5 minutes.
+          description: prometheus-domain-exporter has not refreshed domain data successfully for more than 2 hours.
 
       - alert: domainRDAPSourceDown
         expr: domain_rdap_up{job=~"^(prometheus[_-])?domain[_-]exporter$"} == 0
@@ -92,10 +92,10 @@ groups:
           description: Domain {{ $labels.domain }} registration expires in less than 7 days.
 
       - alert: domainRegistrationLookupIncomplete
-        expr: (domain_exporter_configured_domains{job=~"^(prometheus[_-])?domain[_-]exporter$"} - count(domain_registration_lookup_success{job=~"^(prometheus[_-])?domain[_-]exporter$"})) > 0
+        expr: max by (instance) (domain_exporter_configured_domains{job=~"^(prometheus[_-])?domain[_-]exporter$"}) - (count by (instance) (domain_registration_lookup_success{job=~"^(prometheus[_-])?domain[_-]exporter$"}) or max by (instance) (domain_exporter_configured_domains{job=~"^(prometheus[_-])?domain[_-]exporter$"} * 0)) > 0
         for: 15m
         labels:
           severity: warning
         annotations:
           summary: Some domains not yet looked up
-          description: '{{ $value | humanize }} configured domain(s) have not completed a successful registration lookup.'
+          description: '{{ $value | humanize }} configured domain(s) have not reported registration lookup status.'
