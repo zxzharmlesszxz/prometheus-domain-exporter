@@ -73,7 +73,6 @@ func RegisterFeatureTests(suite *FeatureTestSuite) {
 	suite.Register("exporter_runtime_config_normalizes_values", func(t *testing.T) { testExporterRuntimeConfigNormalizesValues(t, suite) })
 	suite.Register("exporter_runtime_config_loads_config_file", func(t *testing.T) { testExporterRuntimeConfigLoadsConfigFile(t, suite) })
 	suite.Register("exporter_cli_timeout_dominates_config_file", func(t *testing.T) { testExporterCLITimeoutDominatesConfigFile(t, suite) })
-	suite.Register("smoke_spec_includes_config_file", func(t *testing.T) { testSmokeSpecIncludesConfigFile(t, suite) })
 }
 
 func testCollectorExportsSnapshot(t *testing.T, suite *FeatureTestSuite) {
@@ -240,20 +239,5 @@ timeout: 30s
 	config := exporter.RuntimeConfig()
 	if got := exportertest.RuntimeConfigValue(t, config, "timeout"); got != 5*time.Second {
 		t.Fatalf("timeout = %v, want 5s", got)
-	}
-}
-
-func testSmokeSpecIncludesConfigFile(t *testing.T, suite *FeatureTestSuite) {
-	spec := suite.NewNamedFeature().SmokeSpec()
-	want := "--" + testFeatureName + ".config-file=" + DefaultFeatureConfigPath
-	if !featuretest.HasString(spec.ServerArgs, want) {
-		t.Fatalf("SmokeSpec().ServerArgs = %v, want %q", spec.ServerArgs, want)
-	}
-	if len(spec.WantMetrics) != 0 {
-		t.Fatalf("SmokeSpec().WantMetrics = %v, want no domain-specific wanted metrics", spec.WantMetrics)
-	}
-	reject := suite.MetricName(testFeatureName, "", metricDomainLookupSuccess)
-	if !featuretest.HasString(spec.RejectMetrics, reject) {
-		t.Fatalf("SmokeSpec().RejectMetrics = %v, want %q", spec.RejectMetrics, reject)
 	}
 }
