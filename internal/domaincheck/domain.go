@@ -3,7 +3,6 @@ package domaincheck
 import (
 	"fmt"
 	"strings"
-	"unicode"
 
 	"golang.org/x/net/idna"
 )
@@ -83,12 +82,9 @@ func validateLabel(original string, label string) error {
 }
 
 func hasNonASCII(s string) bool {
-	for i := range len(s) {
-		if s[i] > unicode.MaxASCII {
-			return true
-		}
-	}
-	return false
+	return strings.ContainsFunc(s, func(r rune) bool {
+		return r > 127
+	})
 }
 
 func tld(name string) string {

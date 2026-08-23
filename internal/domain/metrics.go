@@ -65,4 +65,4 @@ var domainMetricSpecs = []featurekit.FeatureMetricSpec{
 	},
 }
 
-var featureMetricSpecs = append(domainMetricSpecs, rdapMetricSpecs...)
+var featureMetricSpecs = append(append([]featurekit.FeatureMetricSpec{}, domainMetricSpecs...), rdapMetricSpecs...)

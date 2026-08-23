@@ -22,9 +22,8 @@ type Checker struct {
 }
 
 func NewChecker(domains []string, lookupTimeout time.Duration, maxConcurrent int) Checker {
-	if maxConcurrent <= 0 {
-		maxConcurrent = DefaultMaxConcurrentTargets
-	}
+	lookupTimeout = normalizeLookupTimeout(lookupTimeout)
+	maxConcurrent = normalizeMaxConcurrent(maxConcurrent)
 	return Checker{
 		Targets:              domains,
 		Lookup:               NewRDAPExpirationLookup(lookupTimeout),
@@ -60,17 +59,10 @@ func (c Checker) Snapshot(ctx context.Context, now time.Time) Snapshot {
 	totalTargets := len(c.Targets)
 
 	maxConcurrent := c.MaxConcurrentTargets
-	if maxConcurrent <= 0 {
-		maxConcurrent = DefaultMaxConcurrentTargets
-	}
-	if maxConcurrent > len(c.Targets) {
-		maxConcurrent = len(c.Targets)
-	}
+	maxConcurrent = min(normalizeMaxConcurrent(maxConcurrent), len(c.Targets))
 
 	for i := 0; i < maxConcurrent; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for job := range jobs {
 				domainCtx, cancel := context.WithTimeout(ctx, lookupTimeout)
 				expiration, verified, err := lookup.LookupExpiration(domainCtx, job.Name)
@@ -90,7 +82,7 @@ func (c Checker) Snapshot(ctx context.Context, now time.Time) Snapshot {
 					Err:        err,
 				}
 			}
-		}()
+		})
 	}
 
 sendJobs:
@@ -149,4 +141,11 @@ func normalizeLookupTimeout(timeout time.Duration) time.Duration {
 		return DefaultTimeout
 	}
 	return timeout
+}
+
+func normalizeMaxConcurrent(maxConcurrent int) int {
+	if maxConcurrent <= 0 {
+		return DefaultMaxConcurrentTargets
+	}
+	return maxConcurrent
 }

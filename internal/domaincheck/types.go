@@ -9,9 +9,11 @@ type Result struct {
 	Name       string
 	LookupTime time.Time
 	Expiration time.Time
-	Success    bool
-	Verified   bool
-	Err        error
+	// Success means the RDAP lookup completed without a transport, bootstrap, or service error.
+	Success bool
+	// Verified means the RDAP response confirmed the domain is registered.
+	Verified bool
+	Err      error
 }
 
 type ExpirationLookup interface {

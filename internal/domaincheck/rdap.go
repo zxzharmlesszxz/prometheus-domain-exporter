@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	defaultRDAPBootstrapURL = "https://data.iana.org/rdap/dns.json"
-	defaultRDAPBootstrapTTL = 24 * time.Hour
+	defaultRDAPBootstrapURL        = "https://data.iana.org/rdap/dns.json"
+	defaultRDAPBootstrapTTL        = 24 * time.Hour
+	maxRDAPResponseBodyBytes int64 = 1 << 20
 )
 
 var errExpirationNotFound = errors.New("expiration event not found")
@@ -108,19 +109,13 @@ func (l *RDAPExpirationLookup) LookupExpiration(ctx context.Context, name string
 		}
 		return time.Time{}, false, fmt.Errorf("RDAP request %s returned %s: %s", req.URL.String(), resp.Status, message)
 	}
-	if resp.ContentLength > 1<<20 {
+	if resp.ContentLength > maxRDAPResponseBodyBytes {
 		return time.Time{}, false, fmt.Errorf("RDAP response body too large: %d bytes (max 1MB)", resp.ContentLength)
 	}
 
 	var response rdapDomainResponse
-	limited := io.LimitReader(resp.Body, 1<<20)
-	if err := json.NewDecoder(limited).Decode(&response); err != nil {
+	if err := decodeLimitedRDAPJSON(resp.Body, &response); err != nil {
 		return time.Time{}, false, fmt.Errorf("decode RDAP response: %w", err)
-	}
-
-	var peek [1]byte
-	if _, err := resp.Body.Read(peek[:]); err == nil {
-		return time.Time{}, false, fmt.Errorf("RDAP response body exceeds 1MB limit")
 	}
 
 	expiration, err := response.expiration()
@@ -254,20 +249,25 @@ func (l *RDAPExpirationLookup) fetchJSON(req *http.Request, target any) (err err
 		}
 		return fmt.Errorf("RDAP request %s returned %s: %s", req.URL.String(), resp.Status, message)
 	}
-	if resp.ContentLength > 1<<20 {
+	if resp.ContentLength > maxRDAPResponseBodyBytes {
 		return fmt.Errorf("RDAP response body too large: %d bytes (max 1MB)", resp.ContentLength)
 	}
 
-	limited := io.LimitReader(resp.Body, 1<<20)
-	if err := json.NewDecoder(limited).Decode(target); err != nil {
+	if err := decodeLimitedRDAPJSON(resp.Body, target); err != nil {
 		return fmt.Errorf("decode RDAP response: %w", err)
 	}
+	return nil
+}
 
-	var peek [1]byte
-	if _, err := resp.Body.Read(peek[:]); err == nil {
+func decodeLimitedRDAPJSON(body io.Reader, target any) error {
+	data, err := io.ReadAll(io.LimitReader(body, maxRDAPResponseBodyBytes+1))
+	if err != nil {
+		return err
+	}
+	if int64(len(data)) > maxRDAPResponseBodyBytes {
 		return fmt.Errorf("RDAP response body exceeds 1MB limit")
 	}
-	return nil
+	return json.Unmarshal(data, target)
 }
 
 type rdapBootstrap struct {

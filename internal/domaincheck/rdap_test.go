@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -14,7 +15,7 @@ func TestRDAPExpirationLookup(t *testing.T) {
 	t.Parallel()
 
 	expiration := "2030-01-02T03:04:05Z"
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/dns.json":
 			writeResponsef(t, w, `{"services":[[["example"],["%s/rdap/"]]]}`, serverURL(t, r))
@@ -46,7 +47,7 @@ func TestRDAPExpirationLookup(t *testing.T) {
 func TestRDAPExpirationLookupReportsMissingExpiration(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/dns.json":
 			writeResponsef(t, w, `{"services":[[["example"],["%s/rdap/"]]]}`, serverURL(t, r))
@@ -71,7 +72,7 @@ func TestRDAPExpirationLookupReportsMissingExpiration(t *testing.T) {
 func TestRDAPExpirationLookupReportsMalformedExpiration(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/dns.json":
 			writeResponsef(t, w, `{"services":[[["example"],["%s/rdap/"]]]}`, serverURL(t, r))
@@ -96,7 +97,7 @@ func TestRDAPExpirationLookupReportsMalformedExpiration(t *testing.T) {
 func TestRDAPExpirationLookupReportsMissingService(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/dns.json" {
 			http.NotFound(w, r)
 			return
@@ -114,7 +115,7 @@ func TestRDAPExpirationLookupReportsMissingService(t *testing.T) {
 func TestRDAPExpirationLookupReportsNotFound(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/dns.json":
 			writeResponsef(t, w, `{"services":[[["example"],["%s/rdap/"]]]}`, serverURL(t, r))
@@ -139,7 +140,7 @@ func TestRDAPExpirationLookupReportsNotFound(t *testing.T) {
 func TestRDAPExpirationLookupReportsHTTPError(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/dns.json":
 			writeResponsef(t, w, `{"services":[[["example"],["%s/rdap/"]]]}`, serverURL(t, r))
@@ -237,7 +238,7 @@ func TestRDAPServiceURLUsesCachedServices(t *testing.T) {
 func TestRDAPFetchBootstrapRejectsEmptyServices(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		writeResponse(t, w, `{"services":[[["example"],[]],[["net"],[""]]]}`)
 	}))
 	defer server.Close()
@@ -251,7 +252,7 @@ func TestRDAPFetchBootstrapRejectsEmptyServices(t *testing.T) {
 func TestRDAPFetchJSONReportsDecodeError(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		writeResponse(t, w, `{`)
 	}))
 	defer server.Close()
@@ -270,7 +271,7 @@ func TestRDAPFetchJSONReportsDecodeError(t *testing.T) {
 func TestRDAPFetchJSONRejectsContentLengthOverLimit(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Length", "1048577")
 		writeResponse(t, w, `{}`)
 	}))
@@ -287,10 +288,31 @@ func TestRDAPFetchJSONRejectsContentLengthOverLimit(t *testing.T) {
 	}
 }
 
+func TestRDAPFetchJSONAcceptsBodyAtLimit(t *testing.T) {
+	t.Parallel()
+
+	prefix := `{"services":[]}`
+	body := prefix + strings.Repeat(" ", int(maxRDAPResponseBodyBytes)-len(prefix))
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeResponse(t, w, body)
+	}))
+	defer server.Close()
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL, nil)
+	if err != nil {
+		t.Fatalf("NewRequestWithContext() error = %v", err)
+	}
+	lookup := newRDAPExpirationLookup(server.Client(), "")
+	var response rdapBootstrap
+	if err := lookup.fetchJSON(req, &response); err != nil {
+		t.Fatalf("fetchJSON() error = %v, want nil for exact limit body", err)
+	}
+}
+
 func TestRDAPFetchJSONDetectsTruncation(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		body := make([]byte, 1<<20+1)
 		for i := range body {
 			body[i] = ' '
@@ -448,7 +470,7 @@ func TestRDAPServiceRejectsMalformedBootstrapParts(t *testing.T) {
 func serverURL(t *testing.T, r *http.Request) string {
 	t.Helper()
 
-	return "http://" + r.Host
+	return "https://" + r.Host
 }
 
 func writeResponse(t *testing.T, w http.ResponseWriter, body string) {

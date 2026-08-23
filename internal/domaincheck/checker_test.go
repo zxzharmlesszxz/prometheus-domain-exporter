@@ -58,8 +58,8 @@ func TestNewCheckerSetsRDAPLookupAndDefaults(t *testing.T) {
 	if checker.Lookup == nil {
 		t.Fatal("NewChecker().Lookup = nil, want RDAP lookup")
 	}
-	if checker.Timeout != 0 {
-		t.Fatalf("NewChecker().Timeout = %v, want 0 (normalized in Snapshot)", checker.Timeout)
+	if checker.Timeout != DefaultTimeout {
+		t.Fatalf("NewChecker().Timeout = %v, want %v", checker.Timeout, DefaultTimeout)
 	}
 	if checker.MaxConcurrentTargets != DefaultMaxConcurrentTargets {
 		t.Fatalf("NewChecker().MaxConcurrentTargets = %d, want %d", checker.MaxConcurrentTargets, DefaultMaxConcurrentTargets)
@@ -100,6 +100,26 @@ func TestNormalizeLookupTimeout(t *testing.T) {
 	for _, tt := range tests {
 		if got := normalizeLookupTimeout(tt.input); got != tt.want {
 			t.Errorf("normalizeLookupTimeout(%v) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestNormalizeMaxConcurrent(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input int
+		want  int
+	}{
+		{0, DefaultMaxConcurrentTargets},
+		{-1, DefaultMaxConcurrentTargets},
+		{1, 1},
+		{DefaultMaxConcurrentTargets, DefaultMaxConcurrentTargets},
+		{30, 30},
+	}
+	for _, tt := range tests {
+		if got := normalizeMaxConcurrent(tt.input); got != tt.want {
+			t.Errorf("normalizeMaxConcurrent(%d) = %d, want %d", tt.input, got, tt.want)
 		}
 	}
 }
