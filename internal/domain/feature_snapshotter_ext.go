@@ -32,40 +32,67 @@ func FeatureSnapshotStatus(snapshot Snapshot) framework.SnapshotStatus {
 
 func newSnapshotEngine(config Config) (featurekit.SnapshotEngine[Snapshot], error) {
 	checker := domaincheck.NewChecker(config.Targets, config.Timeout, config.MaxConcurrentTargets)
-	var readErrors atomic.Uint64
-	var parseErrors atomic.Uint64
+	rdapCounters := newSourceErrorCounters()
+	whoisCounters := newSourceErrorCounters()
 
 	return featurekit.SnapshotEngineFunc[Snapshot](func(ctx context.Context, now time.Time) Snapshot {
 		start := time.Now()
 		domainSnapshot := checker.Snapshot(ctx, now)
-		readErrorCount, parseErrorCount := classifyRDAPSourceErrors(domainSnapshot)
-		if readErrorCount > 0 {
-			readErrors.Add(readErrorCount)
-		}
-		if parseErrorCount > 0 {
-			parseErrors.Add(parseErrorCount)
-		}
+		duration := time.Since(start).Seconds()
+		rdapResult, rdapValid := buildSourceResult(domainSnapshot, domaincheck.SourceRDAP, now, duration, rdapCounters)
+		whoisResult, whoisValid := buildSourceResult(domainSnapshot, domaincheck.SourceWHOIS, now, duration, whoisCounters)
 
 		return Snapshot{
-			domain: domainSnapshot,
-			RDAPResult: framework.FileScrapeResult{
-				Path:                  "rdap",
-				Up:                    readErrorCount == 0,
-				MTimeSeconds:          float64(now.Unix()),
-				ReadErrorsTotal:       readErrors.Load(),
-				ParseErrorsTotal:      parseErrors.Load(),
-				ScrapeDurationSeconds: time.Since(start).Seconds(),
-			},
+			domain:      domainSnapshot,
+			RDAPResult:  rdapResult,
+			RDAPValid:   rdapValid,
+			WHOISResult: whoisResult,
+			WHOISValid:  whoisValid,
 		}
 	}), nil
 }
 
-func classifyRDAPSourceErrors(snapshot domaincheck.Snapshot) (uint64, uint64) {
+type sourceErrorCounters struct {
+	read  atomic.Uint64
+	parse atomic.Uint64
+}
+
+func newSourceErrorCounters() *sourceErrorCounters {
+	return &sourceErrorCounters{}
+}
+
+func buildSourceResult(snapshot domaincheck.Snapshot, source string, now time.Time, duration float64, counters *sourceErrorCounters) (framework.FileScrapeResult, bool) {
+	used, readErrorCount, parseErrorCount := classifySourceErrors(snapshot, source)
+	if !used {
+		return framework.FileScrapeResult{}, false
+	}
+	counters.read.Add(readErrorCount)
+	counters.parse.Add(parseErrorCount)
+	return framework.FileScrapeResult{
+		Path:                  source,
+		Up:                    readErrorCount == 0,
+		MTimeSeconds:          float64(now.Unix()),
+		ReadErrorsTotal:       counters.read.Load(),
+		ParseErrorsTotal:      counters.parse.Load(),
+		ScrapeDurationSeconds: duration,
+	}, readErrorCount == 0 && parseErrorCount == 0
+}
+
+func classifySourceErrors(snapshot domaincheck.Snapshot, source string) (bool, uint64, uint64) {
+	used := len(snapshot.Domains) == 0 && source == domaincheck.SourceRDAP
 	var readErrors uint64
 	var parseErrors uint64
 	for _, result := range snapshot.Domains {
+		if result.Source != source {
+			continue
+		}
+		used = true
 		if result.Err != nil {
-			readErrors++
+			if domaincheck.IsLookupParseError(result.Err) {
+				parseErrors++
+			} else {
+				readErrors++
+			}
 			continue
 		}
 		if !result.Verified || result.Expiration.IsZero() {
@@ -75,5 +102,5 @@ func classifyRDAPSourceErrors(snapshot domaincheck.Snapshot) (uint64, uint64) {
 	if snapshot.Err != nil && len(snapshot.Domains) == 0 {
 		readErrors++
 	}
-	return readErrors, parseErrors
+	return used, readErrors, parseErrors
 }

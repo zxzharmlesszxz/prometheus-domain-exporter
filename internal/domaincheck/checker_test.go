@@ -50,13 +50,46 @@ func TestCheckerCollectsDomainExpirations(t *testing.T) {
 	}
 }
 
+type fakeSourcedExpirationLookup struct {
+	expiration time.Time
+	source     string
+}
+
+func (l fakeSourcedExpirationLookup) LookupExpiration(context.Context, string) (time.Time, bool, error) {
+	return l.expiration, true, nil
+}
+
+func (l fakeSourcedExpirationLookup) LookupExpirationSource(context.Context, string) (time.Time, bool, string, error) {
+	return l.expiration, true, l.source, nil
+}
+
+func TestCheckerRecordsLookupSource(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_700_000_000, 0)
+	snapshot := Checker{
+		Targets: []string{"example.ws"},
+		Lookup: fakeSourcedExpirationLookup{
+			expiration: now.Add(24 * time.Hour),
+			source:     SourceWHOIS,
+		},
+	}.Snapshot(context.Background(), now)
+
+	if !snapshot.Success {
+		t.Fatalf("Snapshot().Success = false, want true: %v", snapshot.Err)
+	}
+	if len(snapshot.Domains) != 1 || snapshot.Domains[0].Source != SourceWHOIS {
+		t.Fatalf("Snapshot().Domains = %+v, want WHOIS source", snapshot.Domains)
+	}
+}
+
 func TestNewCheckerSetsRDAPLookupAndDefaults(t *testing.T) {
 	t.Parallel()
 
 	checker := NewChecker([]string{"example.com"}, 0, 0)
 
 	if checker.Lookup == nil {
-		t.Fatal("NewChecker().Lookup = nil, want RDAP lookup")
+		t.Fatal("NewChecker().Lookup = nil, want registration lookup")
 	}
 	if checker.Timeout != DefaultTimeout {
 		t.Fatalf("NewChecker().Timeout = %v, want %v", checker.Timeout, DefaultTimeout)
@@ -289,7 +322,7 @@ func TestCheckerMarksUnverifiedDomainsAsFullCollectionFailure(t *testing.T) {
 		t.Fatalf("Snapshot().Domains length = %d, want 1", len(snapshot.Domains))
 	}
 	if !snapshot.Domains[0].Success {
-		t.Fatal("domain lookup success = false, want true because RDAP lookup completed")
+		t.Fatal("domain lookup success = false, want true because registration lookup completed")
 	}
 	if snapshot.Domains[0].Verified {
 		t.Fatal("domain verified = true, want false")
@@ -317,7 +350,7 @@ func TestCheckerMarksMissingExpirationAsFullCollectionFailure(t *testing.T) {
 		t.Fatalf("Snapshot().Domains length = %d, want 1", len(snapshot.Domains))
 	}
 	if !snapshot.Domains[0].Success {
-		t.Fatal("domain lookup success = false, want true because RDAP lookup completed")
+		t.Fatal("domain lookup success = false, want true because registration lookup completed")
 	}
 	if !snapshot.Domains[0].Verified {
 		t.Fatal("domain verified = false, want true")

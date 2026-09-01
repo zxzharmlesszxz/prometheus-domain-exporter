@@ -26,7 +26,7 @@ func NewChecker(domains []string, lookupTimeout time.Duration, maxConcurrent int
 	maxConcurrent = normalizeMaxConcurrent(maxConcurrent)
 	return Checker{
 		Targets:              domains,
-		Lookup:               NewRDAPExpirationLookup(lookupTimeout),
+		Lookup:               NewRegistrationExpirationLookup(lookupTimeout),
 		Timeout:              lookupTimeout,
 		MaxConcurrentTargets: maxConcurrent,
 	}
@@ -49,7 +49,7 @@ func (c Checker) Snapshot(ctx context.Context, now time.Time) Snapshot {
 	lookupTimeout := normalizeLookupTimeout(c.Timeout)
 	lookup := c.Lookup
 	if lookup == nil {
-		lookup = NewRDAPExpirationLookup(lookupTimeout)
+		lookup = NewRegistrationExpirationLookup(lookupTimeout)
 	}
 
 	results := make([]Result, len(c.Targets))
@@ -65,7 +65,7 @@ func (c Checker) Snapshot(ctx context.Context, now time.Time) Snapshot {
 		wg.Go(func() {
 			for job := range jobs {
 				domainCtx, cancel := context.WithTimeout(ctx, lookupTimeout)
-				expiration, verified, err := lookup.LookupExpiration(domainCtx, job.Name)
+				expiration, verified, source, err := lookupExpiration(domainCtx, lookup, job.Name)
 				cancel()
 
 				name := job.Name
@@ -77,6 +77,7 @@ func (c Checker) Snapshot(ctx context.Context, now time.Time) Snapshot {
 					Name:       name,
 					LookupTime: now,
 					Expiration: expiration,
+					Source:     source,
 					Success:    err == nil,
 					Verified:   verified,
 					Err:        err,
@@ -121,6 +122,14 @@ sendJobs:
 		snapshot.Err = firstLookupErr
 	}
 	return snapshot
+}
+
+func lookupExpiration(ctx context.Context, lookup ExpirationLookup, name string) (time.Time, bool, string, error) {
+	if sourced, ok := lookup.(SourcedExpirationLookup); ok {
+		return sourced.LookupExpirationSource(ctx, name)
+	}
+	expiration, verified, err := lookup.LookupExpiration(ctx, name)
+	return expiration, verified, SourceRDAP, err
 }
 
 func fullCollectionTargetError(result Result) error {

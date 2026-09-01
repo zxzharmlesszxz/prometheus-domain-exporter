@@ -89,6 +89,9 @@ func TestRDAPExpirationLookupReportsMalformedExpiration(t *testing.T) {
 	if err == nil {
 		t.Fatal("LookupExpiration() error = nil, want malformed expiration error")
 	}
+	if !IsLookupParseError(err) {
+		t.Fatalf("LookupExpiration() error = %v, want lookup parse error", err)
+	}
 	if !verified {
 		t.Fatal("LookupExpiration() verified = false, want true (domain exists)")
 	}

@@ -21,6 +21,14 @@ const (
 
 var errExpirationNotFound = errors.New("expiration event not found")
 
+type rdapServiceNotFoundError struct {
+	tld string
+}
+
+func (e rdapServiceNotFoundError) Error() string {
+	return fmt.Sprintf("no published RDAP service for .%s", e.tld)
+}
+
 var supplementalRDAPServices = map[string]string{
 	"io": "https://rdap.identitydigital.services/rdap/",
 }
@@ -119,13 +127,13 @@ func (l *RDAPExpirationLookup) LookupExpiration(ctx context.Context, name string
 
 	var response rdapDomainResponse
 	if err := decodeLimitedRDAPJSON(resp.Body, &response); err != nil {
-		return time.Time{}, false, fmt.Errorf("decode RDAP response: %w", err)
+		return time.Time{}, false, newLookupParseError(fmt.Errorf("decode RDAP response: %w", err))
 	}
 
 	expiration, err := response.expiration()
 	if err != nil {
 		if !errors.Is(err, errExpirationNotFound) {
-			return time.Time{}, true, err
+			return time.Time{}, true, newLookupParseError(err)
 		}
 		return time.Time{}, true, nil
 	}
@@ -159,7 +167,7 @@ func (l *RDAPExpirationLookup) serviceURL(ctx context.Context, tld string) (stri
 	l.mu.Unlock()
 
 	if service == "" {
-		return "", fmt.Errorf("no published RDAP service for .%s", tld)
+		return "", rdapServiceNotFoundError{tld: tld}
 	}
 
 	return service, nil
@@ -183,7 +191,7 @@ func (l *RDAPExpirationLookup) cachedServiceURL(tld string, now time.Time) (stri
 
 	service := serviceURLForTLD(l.services, tld)
 	if service == "" {
-		return "", true, fmt.Errorf("no published RDAP service for .%s", tld)
+		return "", true, rdapServiceNotFoundError{tld: tld}
 	}
 
 	return service, true, nil
@@ -261,7 +269,7 @@ func (l *RDAPExpirationLookup) fetchJSON(req *http.Request, target any) (err err
 	}
 
 	if err := decodeLimitedRDAPJSON(resp.Body, target); err != nil {
-		return fmt.Errorf("decode RDAP response: %w", err)
+		return newLookupParseError(fmt.Errorf("decode RDAP response: %w", err))
 	}
 	return nil
 }

@@ -10,16 +10,19 @@ const (
 	metricDomainLookupTimestamp     = "domain_lookup_timestamp"
 	metricDomainConfiguredTotal     = "domain_configured_total"
 
-	metricRDAPSource = "rdap"
+	metricRDAPSource  = "rdap"
+	metricWHOISSource = "whois"
 )
 
 var rdapMetricIDs = featurekit.FileScrapeMetricIDsFor(metricRDAPSource)
+var whoisMetricIDs = featurekit.FileScrapeMetricIDsFor(metricWHOISSource)
 
 var domainLabels = []string{
 	"domain",
 }
 
 var rdapMetricSpecs = featurekit.FileScrapeMetricSpecs(metricRDAPSource, []string{"source"})
+var whoisMetricSpecs = featurekit.FileScrapeMetricSpecs(metricWHOISSource, []string{"source"})
 
 var domainMetricSpecs = []featurekit.FeatureMetricSpec{
 	{
@@ -65,4 +68,4 @@ var domainMetricSpecs = []featurekit.FeatureMetricSpec{
 	},
 }
 
-var featureMetricSpecs = append(append([]featurekit.FeatureMetricSpec{}, domainMetricSpecs...), rdapMetricSpecs...)
+var featureMetricSpecs = append(append(append([]featurekit.FeatureMetricSpec{}, domainMetricSpecs...), rdapMetricSpecs...), whoisMetricSpecs...)

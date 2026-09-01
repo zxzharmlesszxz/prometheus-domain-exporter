@@ -11,6 +11,7 @@ import (
 	framework "github.com/zxzharmlesszxz/prometheus-exporter-framework/exporter"
 	"github.com/zxzharmlesszxz/prometheus-exporter-framework/exporter/exportertest"
 	"github.com/zxzharmlesszxz/prometheus-exporter-framework/exporter/exportertest/featuretest"
+	"github.com/zxzharmlesszxz/prometheus-exporter-framework/exporter/featurekit"
 
 	"github.com/zxzharmlesszxz/prometheus-domain-exporter/internal/domaincheck"
 )
@@ -33,6 +34,7 @@ func NewFeatureTestSpec() FeatureTestSpec {
 							Name:       "example.com",
 							LookupTime: at,
 							Expiration: at.Add(24 * time.Hour),
+							Source:     domaincheck.SourceRDAP,
 							Success:    true,
 							Verified:   true,
 						},
@@ -87,6 +89,15 @@ func testCollectorExportsSnapshot(t *testing.T, suite *FeatureTestSuite) {
 					Name:       "example.com",
 					LookupTime: now,
 					Expiration: expiration,
+					Source:     domaincheck.SourceRDAP,
+					Success:    true,
+					Verified:   true,
+				},
+				{
+					Name:       "example.ws",
+					LookupTime: now,
+					Expiration: expiration,
+					Source:     domaincheck.SourceWHOIS,
 					Success:    true,
 					Verified:   true,
 				},
@@ -99,6 +110,15 @@ func testCollectorExportsSnapshot(t *testing.T, suite *FeatureTestSuite) {
 			ParseErrorsTotal:      0,
 			ScrapeDurationSeconds: 0.25,
 		},
+		RDAPValid: true,
+		WHOISResult: framework.FileScrapeResult{
+			Path:                  "whois",
+			Up:                    true,
+			ReadErrorsTotal:       0,
+			ParseErrorsTotal:      0,
+			ScrapeDurationSeconds: 0.25,
+		},
+		WHOISValid: true,
 	}), testRefreshInterval, func() time.Time { return now })
 
 	families := exportertest.RegisterAndGather(t, collector)
@@ -107,11 +127,19 @@ func testCollectorExportsSnapshot(t *testing.T, suite *FeatureTestSuite) {
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupTimestamp), labels, float64(now.Unix()))
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainExpirationTimestamp), labels, float64(expiration.Unix()))
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainExpirationRemaining), labels, expiration.Sub(now).Seconds())
-	sourceLabels := map[string]string{"source": "rdap"}
-	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.Up), sourceLabels, 1)
-	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.Valid), sourceLabels, 1)
-	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.ReadErrorsTotal), sourceLabels, 0)
-	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.ParseErrorsTotal), sourceLabels, 0)
+	for _, source := range []struct {
+		name      string
+		metricIDs featurekit.FileScrapeMetricIDs
+	}{
+		{name: domaincheck.SourceRDAP, metricIDs: rdapMetricIDs},
+		{name: domaincheck.SourceWHOIS, metricIDs: whoisMetricIDs},
+	} {
+		sourceLabels := map[string]string{"source": source.name}
+		exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", source.metricIDs.Up), sourceLabels, 1)
+		exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", source.metricIDs.Valid), sourceLabels, 1)
+		exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", source.metricIDs.ReadErrorsTotal), sourceLabels, 0)
+		exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", source.metricIDs.ParseErrorsTotal), sourceLabels, 0)
+	}
 	exportertest.AssertMetricValue(t, families, testLastSuccess, nil, 1)
 	exportertest.AssertMetricValue(t, families, testLastTimestamp, nil, float64(now.Unix()))
 	exportertest.AssertMetricValue(t, families, testLastSuccessfulTS, nil, float64(now.Unix()))
@@ -127,6 +155,7 @@ func testCollectorExportsFailedDomainLookup(t *testing.T, suite *FeatureTestSuit
 				{
 					Name:       "example.com",
 					LookupTime: now,
+					Source:     domaincheck.SourceRDAP,
 					Success:    false,
 					Err:        errors.New("rdap unavailable"),
 				},
@@ -140,6 +169,7 @@ func testCollectorExportsFailedDomainLookup(t *testing.T, suite *FeatureTestSuit
 			ParseErrorsTotal:      0,
 			ScrapeDurationSeconds: 0.25,
 		},
+		RDAPValid: false,
 	}), testRefreshInterval, func() time.Time { return now })
 
 	families := exportertest.RegisterAndGather(t, collector)

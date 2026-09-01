@@ -12,17 +12,17 @@ Per-domain registration metrics use the label:
 
 `domain_registration_lookup_success`
 
-Whether the RDAP lookup for the domain completed without a transport or service
-error. A successful RDAP lookup has value `1`; network timeouts, connection
-errors, bootstrap failures, and non-404 HTTP errors have value `0`.
-The exporter supplements the IANA bootstrap for `.io`; TLDs without an RDAP
-service, such as `.ws`, report lookup failure.
+Whether the registration lookup for the domain completed without a transport
+or service error. A successful RDAP or WHOIS lookup has value `1`; network
+timeouts, connection errors, bootstrap failures, and non-success responses have
+value `0`. The exporter supplements the IANA RDAP bootstrap for `.io` and falls
+back to registry WHOIS for TLDs such as `.ws` that do not publish RDAP.
 
 `domain_registration_lookup_verified`
 
-Whether the RDAP response confirmed that the domain is registered. A registered
-domain has value `1`; an RDAP HTTP 404 Not Found response has value `0` even
-when the lookup itself completed successfully.
+Whether the RDAP or WHOIS response confirmed that the domain is registered. A
+registered domain has value `1`; a not-found response has value `0` even when
+the lookup itself completed successfully.
 
 `domain_registration_lookup_timestamp_seconds`
 
@@ -30,7 +30,7 @@ Unix timestamp of the last registration lookup attempt for the domain.
 
 `domain_registration_expiration_timestamp_seconds`
 
-Unix timestamp of the domain registration expiration time returned by RDAP.
+Unix timestamp of the domain registration expiration time returned by RDAP or WHOIS.
 This metric is emitted only for successful lookups with an expiration event.
 
 `domain_registration_expiration_remaining_seconds`
@@ -58,13 +58,13 @@ queries.
 `domain_rdap_up`
 
 Whether the latest RDAP collection had no lookup, transport, bootstrap, or HTTP
-service errors. If any domain result has a lookup error, this metric is `0`.
+service errors. If any RDAP-backed domain result has a lookup error, this metric
+is `0`.
 
 `domain_rdap_valid`
 
-Whether the latest RDAP collection produced a fully valid domain snapshot. This
-is equivalent to `domain_exporter_last_collection_success`: every configured
-domain must be verified and have an expiration timestamp.
+Whether every RDAP-backed domain in the latest collection was verified and had
+an expiration timestamp. WHOIS-backed domains do not affect this metric.
 
 `domain_rdap_mtime_seconds`
 
@@ -88,12 +88,32 @@ Total number of RDAP data validity errors observed by the exporter. This counts
 domain results that completed the lookup but were not verified or did not expose
 an expiration timestamp.
 
+## WHOIS Source Health
+
+WHOIS source-health metrics use the label:
+
+- `source`: always `whois`.
+
+The exporter emits these series when at least one configured target uses the
+WHOIS fallback:
+
+- `domain_whois_up`
+- `domain_whois_valid`
+- `domain_whois_mtime_seconds`
+- `domain_whois_scrape_duration_seconds`
+- `domain_whois_read_errors_total`
+- `domain_whois_parse_errors_total`
+
+They have the same semantics as the corresponding `domain_rdap_*` metrics, but
+cover IANA WHOIS service discovery, registry WHOIS queries, and WHOIS expiration
+parsing. WHOIS uses its standard unencrypted TCP port 43 protocol.
+
 ## Exporter Collection Health
 
 `domain_exporter_last_collection_success`
 
 Whether the last refresh succeeded. The value is `0` when any configured domain
-lookup fails, is not verified as registered by RDAP, or does not provide a
+lookup fails, is not verified as registered, or does not provide a
 registration expiration timestamp.
 
 `domain_exporter_last_collection_timestamp_seconds`

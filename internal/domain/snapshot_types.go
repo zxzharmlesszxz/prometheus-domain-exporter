@@ -7,6 +7,9 @@ import (
 )
 
 type Snapshot struct {
-	domain     domaincheck.Snapshot
-	RDAPResult framework.FileScrapeResult
+	domain      domaincheck.Snapshot
+	RDAPResult  framework.FileScrapeResult
+	RDAPValid   bool
+	WHOISResult framework.FileScrapeResult
+	WHOISValid  bool
 }

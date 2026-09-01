@@ -64,6 +64,42 @@ groups:
           summary: Domain RDAP parse errors observed
           description: prometheus-domain-exporter observed one or more RDAP parse/validity errors in the last 30 minutes.
 
+      - alert: domainWHOISSourceDown
+        expr: domain_whois_up{job=~"^(prometheus[_-])?domain[_-]exporter$"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Domain WHOIS source is unavailable
+          description: prometheus-domain-exporter cannot collect WHOIS data on {{ $labels.instance }}.
+
+      - alert: domainWHOISSourceInvalid
+        expr: domain_whois_up{job=~"^(prometheus[_-])?domain[_-]exporter$"} == 1 and domain_whois_valid{job=~"^(prometheus[_-])?domain[_-]exporter$"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Domain WHOIS source is readable but invalid
+          description: prometheus-domain-exporter collected WHOIS data on {{ $labels.instance }}, but one or more configured domains could not be interpreted successfully.
+
+      - alert: domainWHOISReadErrors
+        expr: increase(domain_whois_read_errors_total{job=~"^(prometheus[_-])?domain[_-]exporter$"}[30m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Domain WHOIS read errors observed
+          description: prometheus-domain-exporter observed one or more WHOIS read/lookup errors in the last 30 minutes.
+
+      - alert: domainWHOISParseErrors
+        expr: increase(domain_whois_parse_errors_total{job=~"^(prometheus[_-])?domain[_-]exporter$"}[30m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Domain WHOIS parse errors observed
+          description: prometheus-domain-exporter observed one or more WHOIS parse/validity errors in the last 30 minutes.
+
       - alert: domainRegistrationLookupFailed
         expr: domain_registration_lookup_success{job=~"^(prometheus[_-])?domain[_-]exporter$"} == 0
         for: 15m

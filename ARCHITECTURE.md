@@ -17,13 +17,13 @@
   feature config flag specs, runtime config, collector construction, metrics,
   snapshot status, and smoke behavior through domain-specific hooks.
   `snapshot_types.go` owns the feature aggregate `Snapshot`, which combines the
-  `internal/domaincheck` result with RDAP source-health data.
+  `internal/domaincheck` result with RDAP and WHOIS source-health data.
   Domain-specific defaults and hook functions live in adjacent feature files:
   `feature_config_ext.go`, `feature_metrics_ext.go`,
   `feature_snapshotter_ext.go`, `feature_smoke_ext.go`, and `metrics.go`.
 - `internal/domaincheck`
-  Domain check engine: domain-name normalization, RDAP bootstrap/lookup,
-  check result types, and the snapshot-backed `Checker`.
+  Domain check engine: domain-name normalization, RDAP and WHOIS service
+  discovery/lookups, check result types, and the snapshot-backed `Checker`.
 - `smoke`
   Binary smoke tests that build the real executable and verify CLI, HTTP, and
   metric behavior. The scaffold-owned smoke test is `scaffold_binary_test.go`.
@@ -39,12 +39,12 @@ scaffold sync flow only.
    `internal/domain.NewFeature(...)` and framework-injected feature metadata.
 3. Framework `featurekit.Feature` registers common flags such as `--domain.refresh-interval` and `--domain.config-file`, then delegates `--domain.target` plus `--domain.timeout` through the framework-owned feature contract.
 4. Framework `featurekit.Feature` builds a typed snapshotter and collector from the extension-backed spec, then registers and starts the collector.
-5. The feature snapshotter delegates to `domaincheck.Checker`, which uses RDAP lookup code to resolve each domain's registration expiration time.
-6. The feature snapshotter wraps the domain snapshot with aggregate RDAP
-   source-health state such as `domain_rdap_up`,
-   `domain_rdap_valid`, source error counters, and refresh duration.
+5. The feature snapshotter delegates to `domaincheck.Checker`, which prefers
+   RDAP and falls back to registry WHOIS when the TLD does not publish RDAP.
+6. The feature snapshotter wraps the domain snapshot with independent RDAP and
+   WHOIS source-health state, error counters, and refresh duration.
 7. `framework.SnapshotCollector` refreshes data in a background worker every `--domain.refresh-interval`; scrapes read the latest completed snapshot.
-8. The collector exports per-domain registration metrics, RDAP source-health
+8. The collector exports per-domain registration metrics, registration source-health
    metrics, and framework collection health metrics.
 
 ## Failure Semantics
@@ -54,13 +54,18 @@ If no domains are configured, the exporter exposes collection health metrics but
 If any configured domain lookup fails, the exporter exposes per-domain lookup success metrics and sets:
 
 - `domain_exporter_last_collection_success = 0`
-- `domain_rdap_up = 0`
+- the failing source's `domain_<source>_up = 0`
 
-If a domain lookup completes but RDAP does not verify the domain or does not
-return an expiration timestamp, the exporter sets:
+If a registration lookup completes but does not verify the domain or return an
+expiration timestamp, the exporter sets:
 
 - `domain_exporter_last_collection_success = 0`
-- `domain_rdap_valid = 0`
+- the affected source's `domain_<source>_valid = 0`
+
+WHOIS fallback failures and invalid responses follow the same rules through
+`domain_whois_up` and `domain_whois_valid`. Source validity is independent: a
+WHOIS failure does not mark RDAP invalid, while full collection success still
+requires every configured domain to succeed.
 
 The `/healthz` endpoint remains `200 OK` while the process is alive even if the latest collection failed.
 
@@ -68,8 +73,8 @@ The `/healthz` endpoint remains `200 OK` while the process is alive even if the 
 
 - Domain registration metrics use the feature namespace `domain`, for example
   `domain_registration_lookup_success`.
-- RDAP source-health metrics also use the feature namespace, for example
-  `domain_rdap_up`.
+- RDAP and WHOIS source-health metrics also use the feature namespace, for
+  example `domain_rdap_up` and `domain_whois_up`.
 - Framework-owned exporter metrics use the metric namespace `domain_exporter`,
   for example `domain_exporter_last_collection_success` and
   `domain_exporter_collection_duration_seconds`.
@@ -82,8 +87,8 @@ Overview tab contains:
 - `Status`: exporter availability and collection age.
 - `Main Metrics`: domain status stats, bad-domain table, timing snapshot table,
   lookup health, and registration expiry views.
-- `Source Health`: shared RDAP source-health graphs powered by
-  `domain_rdap_*` metrics.
+- `Source Health`: shared registration source-health graphs powered by
+  `domain_rdap_*` and `domain_whois_*` metrics.
 - `Historical Graph`: collapsed change graphs for lookup and expiry series.
 - `Exporter Collection`: collapsed framework collection metrics.
 

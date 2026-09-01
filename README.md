@@ -44,6 +44,7 @@ The YAML config file accepts these domain-specific keys:
 targets:
   - example.com
   - example.net
+  - example.ws
 timeout: 10s
 max_concurrent_targets: 8
 ```
@@ -57,17 +58,19 @@ timeout: 10s
 max_concurrent_targets: 8
 ```
 
-Registration lookup requires an RDAP service. The exporter supplements the
-IANA bootstrap for `.io`, whose registry operates RDAP without publishing it in
-the bootstrap. TLDs without either a published or supplemental RDAP service,
-including `.ws`, cannot expose registration or expiration metrics.
+Registration lookup prefers RDAP and falls back to registry WHOIS when a TLD
+does not publish an RDAP service. The exporter supplements the IANA RDAP
+bootstrap for `.io`; for TLDs such as `.ws`, it discovers the registry WHOIS
+server through IANA and reads the expiration date over the standard TCP port 43
+protocol. WHOIS traffic is not encrypted, so deployments using fallback must
+allow outbound TCP port 43 and account for that protocol in their network policy.
 
 ## Metrics
 
 Example output:
 
 ```text
-domain_exporter_configured_domains 1
+domain_exporter_configured_domains 3
 domain_registration_lookup_success{domain="example.com"} 1
 domain_registration_lookup_verified{domain="example.com"} 1
 domain_registration_lookup_timestamp_seconds{domain="example.com"} 1742812800
@@ -78,6 +81,8 @@ domain_rdap_valid{source="rdap"} 1
 domain_rdap_scrape_duration_seconds{source="rdap"} 0.452
 domain_rdap_read_errors_total{source="rdap"} 0
 domain_rdap_parse_errors_total{source="rdap"} 0
+domain_whois_up{source="whois"} 1
+domain_whois_valid{source="whois"} 1
 domain_exporter_last_collection_success 1
 domain_exporter_last_collection_timestamp_seconds 1742812800
 domain_exporter_last_successful_collection_timestamp_seconds 1742812800
@@ -93,7 +98,7 @@ The repository includes [`docker-compose.yml`](docker-compose.yml) for local tes
 The Prometheus scrape config is embedded in Compose, while alerting rules live
 under [`examples/prometheus`](examples/prometheus).
 The bundled rules cover exporter availability, framework collection
-failure/staleness, RDAP source health, per-domain lookup failure, expiration
+failure/staleness, RDAP and WHOIS source health, per-domain lookup failure, expiration
 windows, and incomplete lookup coverage.
 It starts:
 
@@ -123,7 +128,7 @@ Docker Compose provisions Grafana with:
 
 Open `http://localhost:3000` after `make compose`.
 The main dashboard uses the Grafana v2 dashboard resource model and includes
-domain status stats, bad-domain and timing tables, RDAP source-health graphs,
+domain status stats, bad-domain and timing tables, registration source-health graphs,
 historical changes, exporter collection health, Go runtime panels, and
 Prometheus scrape health.
 
@@ -158,7 +163,7 @@ identical to the scaffold output. Add exporter-specific behavior in adjacent
 non-scaffold files such as `feature_config_ext.go`, `feature_metrics_ext.go`,
 `feature_snapshotter_ext.go`, `feature_smoke_ext.go`, `metrics.go`, and the
 domain check package. The feature package `Snapshot` aggregate lives in
-`snapshot_types.go`; the RDAP/domain engine snapshot lives in
+`snapshot_types.go`; the registration/domain engine snapshot lives in
 `internal/domaincheck`.
 
 Build local release artifacts:
