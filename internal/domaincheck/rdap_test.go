@@ -235,6 +235,57 @@ func TestRDAPServiceURLUsesCachedServices(t *testing.T) {
 	}
 }
 
+func TestRDAPServiceURLUsesSupplementalService(t *testing.T) {
+	t.Parallel()
+
+	lookup := newRDAPExpirationLookup(nil, "")
+	lookup.services = map[string]string{"com": "https://rdap.verisign.com/com/v1/"}
+	lookup.fetchedAt = time.Now()
+
+	got, err := lookup.serviceURL(context.Background(), "io")
+	if err != nil {
+		t.Fatalf("serviceURL() error = %v, want nil", err)
+	}
+	if want := supplementalRDAPServices["io"]; got != want {
+		t.Fatalf("serviceURL() = %q, want %q", got, want)
+	}
+}
+
+func TestRDAPServiceURLUsesSupplementalServiceWhenBootstrapFails(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "bootstrap unavailable", http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	lookup := newRDAPExpirationLookup(server.Client(), server.URL)
+	got, err := lookup.serviceURL(context.Background(), "io")
+	if err != nil {
+		t.Fatalf("serviceURL() error = %v, want nil", err)
+	}
+	if want := supplementalRDAPServices["io"]; got != want {
+		t.Fatalf("serviceURL() = %q, want %q", got, want)
+	}
+}
+
+func TestRDAPServiceURLPrefersBootstrapService(t *testing.T) {
+	t.Parallel()
+
+	want := "https://rdap.example.test/io/"
+	lookup := newRDAPExpirationLookup(nil, "")
+	lookup.services = map[string]string{"io": want}
+	lookup.fetchedAt = time.Now()
+
+	got, err := lookup.serviceURL(context.Background(), "io")
+	if err != nil {
+		t.Fatalf("serviceURL() error = %v, want nil", err)
+	}
+	if got != want {
+		t.Fatalf("serviceURL() = %q, want bootstrap service %q", got, want)
+	}
+}
+
 func TestRDAPFetchBootstrapRejectsEmptyServices(t *testing.T) {
 	t.Parallel()
 

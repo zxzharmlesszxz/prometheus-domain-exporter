@@ -21,6 +21,10 @@ const (
 
 var errExpirationNotFound = errors.New("expiration event not found")
 
+var supplementalRDAPServices = map[string]string{
+	"io": "https://rdap.identitydigital.services/rdap/",
+}
+
 type RDAPExpirationLookup struct {
 	client       *http.Client
 	bootstrapURL string
@@ -151,11 +155,11 @@ func (l *RDAPExpirationLookup) serviceURL(ctx context.Context, tld string) (stri
 	l.mu.Lock()
 	l.services = services
 	l.fetchedAt = time.Now()
-	service := l.services[tld]
+	service := serviceURLForTLD(l.services, tld)
 	l.mu.Unlock()
 
 	if service == "" {
-		return "", fmt.Errorf("no RDAP service for .%s", tld)
+		return "", fmt.Errorf("no published RDAP service for .%s", tld)
 	}
 
 	return service, nil
@@ -165,11 +169,7 @@ func (l *RDAPExpirationLookup) staleServiceURL(tld string) (string, bool) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
-	if l.services == nil {
-		return "", false
-	}
-
-	service := l.services[tld]
+	service := serviceURLForTLD(l.services, tld)
 	return service, service != ""
 }
 
@@ -181,12 +181,19 @@ func (l *RDAPExpirationLookup) cachedServiceURL(tld string, now time.Time) (stri
 		return "", false, nil
 	}
 
-	service := l.services[tld]
+	service := serviceURLForTLD(l.services, tld)
 	if service == "" {
-		return "", true, fmt.Errorf("no RDAP service for .%s", tld)
+		return "", true, fmt.Errorf("no published RDAP service for .%s", tld)
 	}
 
 	return service, true, nil
+}
+
+func serviceURLForTLD(services map[string]string, tld string) string {
+	if service := services[tld]; service != "" {
+		return service
+	}
+	return supplementalRDAPServices[tld]
 }
 
 func (l *RDAPExpirationLookup) bootstrapFresh(now time.Time) bool {

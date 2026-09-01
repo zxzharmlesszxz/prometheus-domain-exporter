@@ -57,6 +57,11 @@ timeout: 10s
 max_concurrent_targets: 8
 ```
 
+Registration lookup requires an RDAP service. The exporter supplements the
+IANA bootstrap for `.io`, whose registry operates RDAP without publishing it in
+the bootstrap. TLDs without either a published or supplemental RDAP service,
+including `.ws`, cannot expose registration or expiration metrics.
+
 ## Metrics
 
 Example output:

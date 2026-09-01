@@ -15,6 +15,8 @@ Per-domain registration metrics use the label:
 Whether the RDAP lookup for the domain completed without a transport or service
 error. A successful RDAP lookup has value `1`; network timeouts, connection
 errors, bootstrap failures, and non-404 HTTP errors have value `0`.
+The exporter supplements the IANA bootstrap for `.io`; TLDs without an RDAP
+service, such as `.ws`, report lookup failure.
 
 `domain_registration_lookup_verified`
 
