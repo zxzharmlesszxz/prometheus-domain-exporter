@@ -85,12 +85,14 @@ The bundled Grafana dashboard uses the Grafana v2 dashboard resource model. The
 Overview tab contains:
 
 - `Status`: exporter availability and collection age.
-- `Main Metrics`: domain status stats, bad-domain table, timing snapshot table,
-  lookup health, and registration expiry views.
+- `Main Metrics`: domain status stats and a compact domain status table.
+- `Domain Details`: collapsed lookup health, registration expiry, earliest
+  expiry, and latest lookup age views.
 - `Source Health`: shared registration source-health graphs powered by
   `domain_rdap_*` and `domain_whois_*` metrics.
 - `Historical Graph`: collapsed change graphs for lookup and expiry series.
 - `Exporter Collection`: collapsed framework collection metrics.
 
-The Runtime and Scrape tabs contain Go/process runtime panels and
-Prometheus-side scrape health.
+The Inventory tab contains a full-page domain status table with lookup source
+and expiry details. The Runtime and Scrape tabs contain Go/process runtime
+panels and Prometheus-side scrape health.

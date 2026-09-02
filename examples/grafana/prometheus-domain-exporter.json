@@ -238,7 +238,7 @@
         "spec": {
           "id": 3,
           "title": "Last Collection Age",
-          "description": "Average age of the latest framework collection attempt.",
+          "description": "Age of the stalest latest framework collection attempt across selected exporter instances.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -256,7 +256,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "avg(time() - domain_exporter_last_collection_timestamp_seconds{job=~\"$job\"})",
+                        "expr": "max(time() - domain_exporter_last_collection_timestamp_seconds{job=~\"$job\"})",
                         "legendFormat": "age",
                         "range": false,
                         "instant": true
@@ -329,7 +329,7 @@
         "spec": {
           "id": 4,
           "title": "Last Successful Age",
-          "description": "Average age of the latest successful framework collection.",
+          "description": "Age of the stalest latest successful framework collection across selected exporter instances that have succeeded.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -347,7 +347,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "avg(time() - (domain_exporter_last_successful_collection_timestamp_seconds{job=~\"$job\"} > 0))",
+                        "expr": "max(time() - (domain_exporter_last_successful_collection_timestamp_seconds{job=~\"$job\"} > 0))",
                         "legendFormat": "age",
                         "range": false,
                         "instant": true
@@ -565,6 +565,11 @@
                         "Time 3": true,
                         "Time 4": true,
                         "Time 5": true,
+                        "environment 1": true,
+                        "environment 2": true,
+                        "environment 3": true,
+                        "environment 4": true,
+                        "environment 5": true,
                         "Value": true,
                         "Value #A": true,
                         "__name__": true,
@@ -3743,8 +3748,8 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (domain) (domain_registration_lookup_success{job=~\"$job\"})",
-                        "legendFormat": "{{domain}} checks ok",
+                        "expr": "domain_registration_lookup_success{job=~\"$job\"}",
+                        "legendFormat": "{{instance}} {{domain}} checks ok",
                         "range": true,
                         "instant": false
                       }
@@ -3765,8 +3770,8 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "sum by (domain) (domain_registration_lookup_verified{job=~\"$job\"})",
-                        "legendFormat": "{{domain}} chains verified",
+                        "expr": "domain_registration_lookup_verified{job=~\"$job\"}",
+                        "legendFormat": "{{instance}} {{domain}} registration verified",
                         "range": true,
                         "instant": false
                       }
@@ -3882,7 +3887,7 @@
                       "spec": {
                         "editorMode": "code",
                         "expr": "domain_registration_expiration_remaining_seconds{job=~\"$job\"} / 86400",
-                        "legendFormat": "{{domain}}",
+                        "legendFormat": "{{instance}} {{domain}}",
                         "range": true,
                         "instant": false
                       }
@@ -4249,7 +4254,7 @@
                     {
                       "type": "range",
                       "options": {
-                        "from": 1e-06,
+                        "from": 0.000001,
                         "to": 0.999999,
                         "result": {
                           "text": "Partial",
@@ -4310,7 +4315,7 @@
                       "spec": {
                         "editorMode": "code",
                         "expr": "changes(domain_registration_lookup_success{job=~\"$job\"}[24h])",
-                        "legendFormat": "{{domain}}",
+                        "legendFormat": "{{instance}} {{domain}}",
                         "range": true,
                         "instant": false
                       }
@@ -4405,7 +4410,7 @@
                       "spec": {
                         "editorMode": "code",
                         "expr": "changes(domain_registration_lookup_verified{job=~\"$job\"}[24h])",
-                        "legendFormat": "{{domain}}",
+                        "legendFormat": "{{instance}} {{domain}}",
                         "range": true,
                         "instant": false
                       }
@@ -4500,7 +4505,7 @@
                       "spec": {
                         "editorMode": "code",
                         "expr": "changes(domain_registration_expiration_remaining_seconds{job=~\"$job\"}[24h])",
-                        "legendFormat": "{{domain}}",
+                        "legendFormat": "{{instance}} {{domain}}",
                         "range": true,
                         "instant": false
                       }
@@ -4566,140 +4571,6 @@
                   }
                 },
                 "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-44": {
-        "kind": "Panel",
-        "spec": {
-          "id": 44,
-          "title": "Bad Domains",
-          "description": "Domains with failed lookup, unverified RDAP result, expired registration, or registration expiring in less than 14 days.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${DS_PROMETHEUS}"
-                      },
-                      "spec": {
-                        "editorMode": "code",
-                        "expr": "label_replace((domain_registration_lookup_success{job=~\"$job\"} == 0), \"problem\", \"lookup_failed\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 0), \"problem\", \"unverified\", \"domain\", \".*\") or label_replace((domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 0) / 86400, \"problem\", \"expired\", \"domain\", \".*\") or label_replace(((domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 14 * 24 * 60 * 60) and (domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 0)) / 86400, \"problem\", \"expiring_soon\", \"domain\", \".*\")",
-                        "format": "table",
-                        "instant": true,
-                        "legendFormat": "__auto",
-                        "range": false
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [
-                {
-                  "kind": "Transformation",
-                  "group": "organize",
-                  "spec": {
-                    "options": {
-                      "excludeByName": {
-                        "Time": true,
-                        "__name__": true,
-                        "job": true,
-                        "Value": true,
-                        "Value #A": true
-                      },
-                      "includeByName": {},
-                      "indexByName": {
-                        "instance": 0,
-                        "domain": 1,
-                        "problem": 2
-                      },
-                      "orderByMode": "manual",
-                      "renameByName": {}
-                    }
-                  }
-                }
-              ],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "table",
-            "version": "13.0.1",
-            "spec": {
-              "options": {
-                "cellHeight": "sm",
-                "enablePagination": false,
-                "showHeader": true,
-                "sortBy": [
-                  {
-                    "desc": false,
-                    "displayName": "problem"
-                  },
-                  {
-                    "desc": false,
-                    "displayName": "domain"
-                  }
-                ]
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "value": null,
-                        "color": "red"
-                      },
-                      {
-                        "value": 0,
-                        "color": "orange"
-                      },
-                      {
-                        "value": 14,
-                        "color": "yellow"
-                      }
-                    ]
-                  },
-                  "custom": {
-                    "align": "auto",
-                    "cellOptions": {
-                      "type": "auto"
-                    },
-                    "filterable": true,
-                    "footer": {
-                      "reducers": []
-                    },
-                    "inspect": false
-                  }
-                },
-                "overrides": [
-                  {
-                    "matcher": {
-                      "id": "byName",
-                      "scope": "series",
-                      "options": "problem"
-                    },
-                    "properties": [
-                      {
-                        "id": "custom.width",
-                        "value": 160
-                      }
-                    ]
-                  }
-                ]
               }
             }
           }
@@ -4922,8 +4793,8 @@
         "kind": "Panel",
         "spec": {
           "id": 47,
-          "title": "Domain Timing Snapshot",
-          "description": "Current domain expiry and lookup timing values as a table alternative to the timeline graphs.",
+          "title": "Domain Status",
+          "description": "Current status, expiry, and lookup timing for every configured domain target.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -5020,6 +4891,29 @@
                     "refId": "D",
                     "hidden": false
                   }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_PROMETHEUS}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_join(label_replace(domain_registration_lookup_success{job=~\"$job\"} == 0, \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_success{job=~\"$job\"} == 1) and on (instance, domain) (domain_registration_lookup_verified{job=~\"$job\"} == 0), \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain) (domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 0), \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain) ((domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 0) and (domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 1209600)), \"status\", \"warn\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain) (domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 1209600), \"status\", \"ok\", \"domain\", \".*\"), \"target\", \" / \", \"instance\", \"domain\")",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "__auto",
+                        "range": false
+                      }
+                    },
+                    "refId": "E",
+                    "hidden": false
+                  }
                 }
               ],
               "transformations": [
@@ -5043,34 +4937,47 @@
                         "Time 1": true,
                         "Time 2": true,
                         "Time 3": true,
+                        "Time 4": true,
                         "__name__": true,
                         "__name__ 1": true,
                         "__name__ 2": true,
                         "__name__ 3": true,
+                        "__name__ 4": true,
                         "job": true,
                         "job 1": true,
                         "job 2": true,
                         "job 3": true,
+                        "job 4": true,
                         "target": true,
                         "target 1": true,
                         "target 2": true,
                         "target 3": true,
+                        "target 4": true,
                         "instance 1": true,
                         "instance 2": true,
                         "instance 3": true,
+                        "instance 4": true,
                         "domain 1": true,
                         "domain 2": true,
-                        "domain 3": true
+                        "domain 3": true,
+                        "domain 4": true,
+                        "environment 1": true,
+                        "environment 2": true,
+                        "environment 3": true,
+                        "environment 4": true,
+                        "Value #E": true,
+                        "environment": true
                       },
                       "includeByName": {},
                       "indexByName": {
                         "instance": 0,
                         "domain": 1,
-                        "Value": 2,
-                        "Value #A": 2,
-                        "Value #B": 3,
-                        "Value #C": 4,
-                        "Value #D": 5
+                        "Value": 3,
+                        "Value #A": 3,
+                        "Value #B": 4,
+                        "Value #C": 5,
+                        "Value #D": 6,
+                        "status": 2
                       },
                       "orderByMode": "manual",
                       "renameByName": {
@@ -5183,7 +5090,7 @@
                       },
                       {
                         "id": "custom.width",
-                        "value": 130
+                        "value": 160
                       }
                     ]
                   },
@@ -5195,8 +5102,34 @@
                     },
                     "properties": [
                       {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "value",
+                            "options": {
+                              "0": {
+                                "text": "failed",
+                                "color": "red",
+                                "index": 0
+                              },
+                              "1": {
+                                "text": "success",
+                                "color": "green",
+                                "index": 1
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-background"
+                        }
+                      },
+                      {
                         "id": "custom.width",
-                        "value": 120
+                        "value": 180
                       }
                     ]
                   },
@@ -5208,8 +5141,78 @@
                     },
                     "properties": [
                       {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "value",
+                            "options": {
+                              "0": {
+                                "text": "unverified",
+                                "color": "orange",
+                                "index": 0
+                              },
+                              "1": {
+                                "text": "verified",
+                                "color": "green",
+                                "index": 1
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-background"
+                        }
+                      },
+                      {
                         "id": "custom.width",
-                        "value": 120
+                        "value": 190
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "scope": "series",
+                      "options": "status"
+                    },
+                    "properties": [
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "value",
+                            "options": {
+                              "ok": {
+                                "text": "OK",
+                                "color": "green",
+                                "index": 0
+                              },
+                              "warn": {
+                                "text": "WARN",
+                                "color": "yellow",
+                                "index": 1
+                              },
+                              "fail": {
+                                "text": "FAIL",
+                                "color": "red",
+                                "index": 2
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-background"
+                        }
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 150
                       }
                     ]
                   }
@@ -5243,7 +5246,7 @@
                       "spec": {
                         "editorMode": "code",
                         "expr": "{job=~\"$job\", __name__=~\"domain.*_(up|valid)\"}",
-                        "legendFormat": "{{__name__}} {{source}}",
+                        "legendFormat": "{{instance}} {{__name__}} {{source}}",
                         "range": true,
                         "instant": false
                       }
@@ -5361,7 +5364,7 @@
                       "spec": {
                         "editorMode": "code",
                         "expr": "time() - {job=~\"$job\", __name__=~\"domain.*_mtime_seconds\"}",
-                        "legendFormat": "{{__name__}} {{source}}",
+                        "legendFormat": "{{instance}} {{__name__}} {{source}}",
                         "range": true,
                         "instant": false
                       }
@@ -5479,7 +5482,7 @@
                       "spec": {
                         "editorMode": "code",
                         "expr": "{job=~\"$job\", __name__=~\"domain.*_scrape_duration_seconds\"}",
-                        "legendFormat": "{{__name__}} {{source}}",
+                        "legendFormat": "{{instance}} {{__name__}} {{source}}",
                         "range": true,
                         "instant": false
                       }
@@ -5597,7 +5600,7 @@
                       "spec": {
                         "editorMode": "code",
                         "expr": "label_replace(rate({job=~\"$job\", __name__=~\"domain.*_read_errors_total\"}[5m]), \"error_type\", \"read\", \"job\", \".*\") or label_replace(rate({job=~\"$job\", __name__=~\"domain.*_parse_errors_total\"}[5m]), \"error_type\", \"parse\", \"job\", \".*\")",
-                        "legendFormat": "{{error_type}} {{source}}",
+                        "legendFormat": "{{instance}} {{error_type}} {{source}}",
                         "range": true,
                         "instant": false
                       }
@@ -5686,6 +5689,452 @@
                   "unit": "ops"
                 },
                 "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-48": {
+        "kind": "Panel",
+        "spec": {
+          "id": 48,
+          "title": "Domain Status",
+          "description": "Current status, expiry, and lookup timing for every configured domain target.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_PROMETHEUS}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_join(label_replace(domain_registration_expiration_remaining_seconds{job=~\"$job\"} / 86400, \"environment\", \"unknown\", \"environment\", \"^$\"), \"target\", \" / \", \"instance\", \"environment\", \"domain\")",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "__auto",
+                        "range": false
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_PROMETHEUS}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_join(label_replace(time() - domain_registration_lookup_timestamp_seconds{job=~\"$job\"}, \"environment\", \"unknown\", \"environment\", \"^$\"), \"target\", \" / \", \"instance\", \"environment\", \"domain\")",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "__auto",
+                        "range": false
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_PROMETHEUS}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_join(label_replace(domain_registration_lookup_success{job=~\"$job\"}, \"environment\", \"unknown\", \"environment\", \"^$\"), \"target\", \" / \", \"instance\", \"environment\", \"domain\")",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "__auto",
+                        "range": false
+                      }
+                    },
+                    "refId": "C",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_PROMETHEUS}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_join(label_replace(domain_registration_lookup_verified{job=~\"$job\"}, \"environment\", \"unknown\", \"environment\", \"^$\"), \"target\", \" / \", \"instance\", \"environment\", \"domain\")",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "__auto",
+                        "range": false
+                      }
+                    },
+                    "refId": "D",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_PROMETHEUS}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_join(label_replace(label_replace(domain_registration_lookup_success{job=~\"$job\"} == 0, \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_success{job=~\"$job\"} == 1) and on (instance, domain, environment) (domain_registration_lookup_verified{job=~\"$job\"} == 0), \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain, environment) (domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 0), \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain, environment) ((domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 0) and (domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 1209600)), \"status\", \"warn\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain, environment) (domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 1209600), \"status\", \"ok\", \"domain\", \".*\"), \"environment\", \"unknown\", \"environment\", \"^$\"), \"target\", \" / \", \"instance\", \"environment\", \"domain\")",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "__auto",
+                        "range": false
+                      }
+                    },
+                    "refId": "E",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [
+                {
+                  "kind": "Transformation",
+                  "group": "joinByField",
+                  "spec": {
+                    "options": {
+                      "byField": "target",
+                      "mode": "outer"
+                    }
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "organize",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {
+                        "Time": true,
+                        "Time 1": true,
+                        "Time 2": true,
+                        "Time 3": true,
+                        "Time 4": true,
+                        "__name__": true,
+                        "__name__ 1": true,
+                        "__name__ 2": true,
+                        "__name__ 3": true,
+                        "__name__ 4": true,
+                        "job": true,
+                        "job 1": true,
+                        "job 2": true,
+                        "job 3": true,
+                        "job 4": true,
+                        "target": true,
+                        "target 1": true,
+                        "target 2": true,
+                        "target 3": true,
+                        "target 4": true,
+                        "instance 1": true,
+                        "instance 2": true,
+                        "instance 3": true,
+                        "instance 4": true,
+                        "domain 1": true,
+                        "domain 2": true,
+                        "domain 3": true,
+                        "domain 4": true,
+                        "environment 1": true,
+                        "environment 2": true,
+                        "environment 3": true,
+                        "environment 4": true,
+                        "Value #E": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {
+                        "instance": 0,
+                        "domain": 1,
+                        "Value": 3,
+                        "Value #A": 3,
+                        "Value #B": 4,
+                        "Value #C": 5,
+                        "Value #D": 6,
+                        "status": 2,
+                        "environment": 1
+                      },
+                      "orderByMode": "manual",
+                      "renameByName": {
+                        "Value": "expires_in",
+                        "Value #A": "expires_in",
+                        "Value #B": "lookup_age",
+                        "Value #C": "lookup_success",
+                        "Value #D": "lookup_verified"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "version": "13.0.1",
+            "spec": {
+              "options": {
+                "cellHeight": "sm",
+                "enablePagination": false,
+                "showHeader": true,
+                "sortBy": [
+                  {
+                    "desc": false,
+                    "displayName": "expires_in"
+                  }
+                ]
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "red"
+                      },
+                      {
+                        "value": 14,
+                        "color": "orange"
+                      },
+                      {
+                        "value": 30,
+                        "color": "yellow"
+                      },
+                      {
+                        "value": 90,
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "filterable": true,
+                    "footer": {
+                      "reducers": []
+                    },
+                    "inspect": false
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "scope": "series",
+                      "options": "expires_in"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "d"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 1
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-background"
+                        }
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 130
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "scope": "series",
+                      "options": "lookup_age"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "s"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 0
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 160
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "scope": "series",
+                      "options": "lookup_success"
+                    },
+                    "properties": [
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "value",
+                            "options": {
+                              "0": {
+                                "text": "failed",
+                                "color": "red",
+                                "index": 0
+                              },
+                              "1": {
+                                "text": "success",
+                                "color": "green",
+                                "index": 1
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-background"
+                        }
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 180
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "scope": "series",
+                      "options": "lookup_verified"
+                    },
+                    "properties": [
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "value",
+                            "options": {
+                              "0": {
+                                "text": "unverified",
+                                "color": "orange",
+                                "index": 0
+                              },
+                              "1": {
+                                "text": "verified",
+                                "color": "green",
+                                "index": 1
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-background"
+                        }
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 190
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "scope": "series",
+                      "options": "status"
+                    },
+                    "properties": [
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "value",
+                            "options": {
+                              "ok": {
+                                "text": "OK",
+                                "color": "green",
+                                "index": 0
+                              },
+                              "warn": {
+                                "text": "WARN",
+                                "color": "yellow",
+                                "index": 1
+                              },
+                              "fail": {
+                                "text": "FAIL",
+                                "color": "red",
+                                "index": 2
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-background"
+                        }
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 150
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "scope": "series",
+                      "options": "environment"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 160
+                      }
+                    ]
+                  }
+                ]
               }
             }
           }
@@ -5892,34 +6341,36 @@
                                 "spec": {
                                   "x": 0,
                                   "y": 4,
-                                  "width": 12,
-                                  "height": 8,
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-44"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "GridLayoutItem",
-                                "spec": {
-                                  "x": 12,
-                                  "y": 4,
-                                  "width": 12,
-                                  "height": 8,
+                                  "width": 24,
+                                  "height": 12,
                                   "element": {
                                     "kind": "ElementReference",
                                     "name": "panel-47"
                                   }
                                 }
-                              },
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "RowsLayoutRow",
+                      "spec": {
+                        "title": "Domain Details",
+                        "collapse": true,
+                        "hideHeader": false,
+                        "fillScreen": false,
+                        "layout": {
+                          "kind": "AutoGridLayout",
+                          "spec": {
+                            "maxColumnCount": 2,
+                            "columnWidthMode": "standard",
+                            "rowHeightMode": "standard",
+                            "items": [
                               {
-                                "kind": "GridLayoutItem",
+                                "kind": "AutoGridLayoutItem",
                                 "spec": {
-                                  "x": 0,
-                                  "y": 12,
-                                  "width": 12,
-                                  "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
                                     "name": "panel-36"
@@ -5927,12 +6378,8 @@
                                 }
                               },
                               {
-                                "kind": "GridLayoutItem",
+                                "kind": "AutoGridLayoutItem",
                                 "spec": {
-                                  "x": 12,
-                                  "y": 12,
-                                  "width": 12,
-                                  "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
                                     "name": "panel-37"
@@ -5940,12 +6387,8 @@
                                 }
                               },
                               {
-                                "kind": "GridLayoutItem",
+                                "kind": "AutoGridLayoutItem",
                                 "spec": {
-                                  "x": 0,
-                                  "y": 20,
-                                  "width": 12,
-                                  "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
                                     "name": "panel-38"
@@ -5953,12 +6396,8 @@
                                 }
                               },
                               {
-                                "kind": "GridLayoutItem",
+                                "kind": "AutoGridLayoutItem",
                                 "spec": {
-                                  "x": 12,
-                                  "y": 20,
-                                  "width": 12,
-                                  "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
                                     "name": "panel-39"
@@ -6123,6 +6562,32 @@
                               }
                             ]
                           }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "TabsLayoutTab",
+            "spec": {
+              "title": "Inventory",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "x": 0,
+                        "y": 0,
+                        "width": 24,
+                        "height": 24,
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-48"
                         }
                       }
                     }
@@ -6367,7 +6832,7 @@
       "timezone": "browser",
       "from": "now-6h",
       "to": "now",
-      "autoRefresh": "30s",
+      "autoRefresh": "1h",
       "autoRefreshIntervals": [
         "5s",
         "10s",

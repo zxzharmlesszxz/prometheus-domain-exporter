@@ -128,8 +128,8 @@ Docker Compose provisions Grafana with:
 
 Open `http://localhost:3000` after `make compose`.
 The main dashboard uses the Grafana v2 dashboard resource model and includes
-domain status stats, bad-domain and timing tables, registration source-health graphs,
-historical changes, exporter collection health, Go runtime panels, and
+domain status stats, a detailed Inventory table, registration source-health
+graphs, historical changes, exporter collection health, Go runtime panels, and
 Prometheus scrape health.
 
 For a direct Docker build, run:
