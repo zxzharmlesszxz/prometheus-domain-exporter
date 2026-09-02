@@ -28,6 +28,13 @@ func CollectFeatureMetrics(ctx featurekit.FeatureMetricsContext[Snapshot], ch ch
 
 	for _, domain := range snapshot.domain.Domains {
 		ch <- prometheus.MustNewConstMetric(
+			ctx.Descriptors.Get(metricDomainLookupSourceInfo),
+			prometheus.GaugeValue,
+			1,
+			domain.Name,
+			domain.Source,
+		)
+		ch <- prometheus.MustNewConstMetric(
 			ctx.Descriptors.Get(metricDomainLookupSuccess),
 			prometheus.GaugeValue,
 			framework.BoolFloat(domain.Success),

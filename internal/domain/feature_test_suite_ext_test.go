@@ -123,7 +123,11 @@ func testCollectorExportsSnapshot(t *testing.T, suite *FeatureTestSuite) {
 
 	families := exportertest.RegisterAndGather(t, collector)
 	labels := map[string]string{"domain": "example.com"}
+	rdapLabels := map[string]string{"domain": "example.com", "source": domaincheck.SourceRDAP}
+	whoisLabels := map[string]string{"domain": "example.ws", "source": domaincheck.SourceWHOIS}
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupSuccess), labels, 1)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupSourceInfo), rdapLabels, 1)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupSourceInfo), whoisLabels, 1)
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupTimestamp), labels, float64(now.Unix()))
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainExpirationTimestamp), labels, float64(expiration.Unix()))
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainExpirationRemaining), labels, expiration.Sub(now).Seconds())
@@ -175,6 +179,7 @@ func testCollectorExportsFailedDomainLookup(t *testing.T, suite *FeatureTestSuit
 	families := exportertest.RegisterAndGather(t, collector)
 	labels := map[string]string{"domain": "example.com"}
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupSuccess), labels, 0)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupSourceInfo), map[string]string{"domain": "example.com", "source": domaincheck.SourceRDAP}, 1)
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupTimestamp), labels, float64(now.Unix()))
 	sourceLabels := map[string]string{"source": "rdap"}
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.Up), sourceLabels, 0)

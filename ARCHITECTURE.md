@@ -44,8 +44,9 @@ scaffold sync flow only.
 6. The feature snapshotter wraps the domain snapshot with independent RDAP and
    WHOIS source-health state, error counters, and refresh duration.
 7. `framework.SnapshotCollector` refreshes data in a background worker every `--domain.refresh-interval`; scrapes read the latest completed snapshot.
-8. The collector exports per-domain registration metrics, registration source-health
-   metrics, and framework collection health metrics.
+8. The collector exports per-domain registration metrics, including the RDAP or
+   WHOIS source used by each lookup, registration source-health metrics, and
+   framework collection health metrics.
 
 ## Failure Semantics
 

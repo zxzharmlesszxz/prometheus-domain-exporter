@@ -5108,12 +5108,12 @@
                             "type": "value",
                             "options": {
                               "0": {
-                                "text": "failed",
+                                "text": "error",
                                 "color": "red",
                                 "index": 0
                               },
                               "1": {
-                                "text": "success",
+                                "text": "completed",
                                 "color": "green",
                                 "index": 1
                               }
@@ -5147,12 +5147,12 @@
                             "type": "value",
                             "options": {
                               "0": {
-                                "text": "unverified",
+                                "text": "not registered",
                                 "color": "orange",
                                 "index": 0
                               },
                               "1": {
-                                "text": "verified",
+                                "text": "registered",
                                 "color": "green",
                                 "index": 1
                               }
@@ -5819,6 +5819,52 @@
                     "refId": "E",
                     "hidden": false
                   }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_PROMETHEUS}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_join(label_replace(domain_registration_expiration_timestamp_seconds{job=~\"$job\"} * 1000, \"environment\", \"unknown\", \"environment\", \"^$\"), \"target\", \" / \", \"instance\", \"environment\", \"domain\")",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "__auto",
+                        "range": false
+                      }
+                    },
+                    "refId": "F",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_PROMETHEUS}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_join(label_replace(domain_registration_lookup_source_info{job=~\"$job\"}, \"environment\", \"unknown\", \"environment\", \"^$\"), \"target\", \" / \", \"instance\", \"environment\", \"domain\")",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "__auto",
+                        "range": false
+                      }
+                    },
+                    "refId": "G",
+                    "hidden": false
+                  }
                 }
               ],
               "transformations": [
@@ -5870,24 +5916,42 @@
                         "environment 2": true,
                         "environment 3": true,
                         "environment 4": true,
-                        "Value #E": true
+                        "environment 5": true,
+                        "environment 6": true,
+                        "Time 5": true,
+                        "Time 6": true,
+                        "__name__ 5": true,
+                        "__name__ 6": true,
+                        "job 5": true,
+                        "job 6": true,
+                        "target 5": true,
+                        "target 6": true,
+                        "instance 5": true,
+                        "instance 6": true,
+                        "domain 5": true,
+                        "domain 6": true,
+                        "Value #E": true,
+                        "Value #G": true,
+                        "environment": true
                       },
                       "includeByName": {},
                       "indexByName": {
-                        "instance": 0,
-                        "domain": 1,
-                        "Value": 3,
-                        "Value #A": 3,
-                        "Value #B": 4,
-                        "Value #C": 5,
-                        "Value #D": 6,
-                        "status": 2,
-                        "environment": 1
+                        "status": 0,
+                        "Value": 1,
+                        "Value #A": 1,
+                        "Value #F": 2,
+                        "Value #B": 3,
+                        "Value #C": 4,
+                        "Value #D": 5,
+                        "domain": 6,
+                        "source": 8,
+                        "instance": 9
                       },
                       "orderByMode": "manual",
                       "renameByName": {
                         "Value": "expires_in",
                         "Value #A": "expires_in",
+                        "Value #F": "expires_at",
                         "Value #B": "lookup_age",
                         "Value #C": "lookup_success",
                         "Value #D": "lookup_verified"
@@ -5982,6 +6046,23 @@
                     "matcher": {
                       "id": "byName",
                       "scope": "series",
+                      "options": "expires_at"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "dateTimeAsIso"
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 210
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "scope": "series",
                       "options": "lookup_age"
                     },
                     "properties": [
@@ -6013,12 +6094,12 @@
                             "type": "value",
                             "options": {
                               "0": {
-                                "text": "failed",
+                                "text": "error",
                                 "color": "red",
                                 "index": 0
                               },
                               "1": {
-                                "text": "success",
+                                "text": "completed",
                                 "color": "green",
                                 "index": 1
                               }
@@ -6052,12 +6133,12 @@
                             "type": "value",
                             "options": {
                               "0": {
-                                "text": "unverified",
+                                "text": "not registered",
                                 "color": "orange",
                                 "index": 0
                               },
                               "1": {
-                                "text": "verified",
+                                "text": "registered",
                                 "color": "green",
                                 "index": 1
                               }
@@ -6125,12 +6206,12 @@
                     "matcher": {
                       "id": "byName",
                       "scope": "series",
-                      "options": "environment"
+                      "options": "source"
                     },
                     "properties": [
                       {
                         "id": "custom.width",
-                        "value": 160
+                        "value": 120
                       }
                     ]
                   }

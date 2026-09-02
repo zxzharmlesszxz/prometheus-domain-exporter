@@ -5,10 +5,13 @@ Framework-owned exporter metrics use the `domain_exporter` metric namespace.
 
 ## Domain Registration
 
-Per-domain registration metrics use the label:
+Per-domain registration metrics use the `domain` label:
 
 - `domain`: normalized domain name configured with `--domain.target` or
   `targets` in `prometheus-domain-exporter.yml`.
+
+The lookup source info metric additionally uses `source` to identify `rdap` or
+`whois`.
 
 `domain_registration_lookup_success`
 
@@ -17,6 +20,12 @@ or service error. A successful RDAP or WHOIS lookup has value `1`; network
 timeouts, connection errors, bootstrap failures, and non-success responses have
 value `0`. The exporter supplements the IANA RDAP bootstrap for `.io` and falls
 back to registry WHOIS for TLDs such as `.ws` that do not publish RDAP.
+
+`domain_registration_lookup_source_info`
+
+Identifies the registration source used for the last lookup. The metric has
+`domain` and `source` labels, where `source` is `rdap` or `whois`, and always
+has value `1`. It is emitted for both successful and failed lookup attempts.
 
 `domain_registration_lookup_verified`
 

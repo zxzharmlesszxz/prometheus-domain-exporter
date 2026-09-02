@@ -6,6 +6,7 @@ const (
 	metricDomainExpirationRemaining = "domain_expiration_remaining"
 	metricDomainExpirationTimestamp = "domain_expiration_timestamp"
 	metricDomainLookupSuccess       = "domain_lookup_success"
+	metricDomainLookupSourceInfo    = "domain_lookup_source_info"
 	metricDomainLookupVerified      = "domain_lookup_verified"
 	metricDomainLookupTimestamp     = "domain_lookup_timestamp"
 	metricDomainConfiguredTotal     = "domain_configured_total"
@@ -19,6 +20,11 @@ var whoisMetricIDs = featurekit.FileScrapeMetricIDsFor(metricWHOISSource)
 
 var domainLabels = []string{
 	"domain",
+}
+
+var domainSourceLabels = []string{
+	"domain",
+	"source",
 }
 
 var rdapMetricSpecs = featurekit.FileScrapeMetricSpecs(metricRDAPSource, []string{"source"})
@@ -45,6 +51,13 @@ var domainMetricSpecs = []featurekit.FeatureMetricSpec{
 		Name:   "_registration_lookup_success",
 		Help:   "Whether the last domain registration lookup succeeded",
 		Labels: domainLabels,
+	},
+	{
+		ID:     metricDomainLookupSourceInfo,
+		Scope:  featurekit.MetricScopeFeature,
+		Name:   "_registration_lookup_source_info",
+		Help:   "Registration source used for the last domain lookup",
+		Labels: domainSourceLabels,
 	},
 	{
 		ID:     metricDomainLookupVerified,

@@ -72,6 +72,7 @@ Example output:
 ```text
 domain_exporter_configured_domains 3
 domain_registration_lookup_success{domain="example.com"} 1
+domain_registration_lookup_source_info{domain="example.com",source="rdap"} 1
 domain_registration_lookup_verified{domain="example.com"} 1
 domain_registration_lookup_timestamp_seconds{domain="example.com"} 1742812800
 domain_registration_expiration_timestamp_seconds{domain="example.com"} 1893456000
