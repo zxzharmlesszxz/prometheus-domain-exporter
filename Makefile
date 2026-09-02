@@ -1,6 +1,6 @@
 include Makefile.mk
 
-.PHONY: help build release release-archives release-checksums release-smoke docker-build docker-buildx docker-buildx-push docker-push fmt fmt-check print-ldflags vet staticcheck test test-race coverage coverage-check smoke promtool-check promtool-rules-test compose compose-up compose-down compose-logs compose-config examples-check docker-smoke-build docker-smoke-image docker-smoke go-check check full-check clean size
+.PHONY: help build release release-archives release-checksums release-smoke docker-build docker-buildx docker-buildx-push docker-push fmt fmt-check print-ldflags vet staticcheck govulncheck golangci-lint test test-race coverage coverage-check smoke promtool-check promtool-rules-test compose compose-up compose-down compose-logs compose-config examples-check docker-smoke-build docker-smoke-image docker-smoke go-check check full-check clean size require-rendered-template
 .SILENT: compose compose-config compose-down compose-logs compose-up size
 
 help: ## Show available make targets.
@@ -80,11 +80,22 @@ vet: ## Run go vet.
 staticcheck: ## Run staticcheck.
 	GOFLAGS="$(strip $(GOFLAGS) $(STATICCHECK_GOFLAGS))" $(STATICCHECK) ./...
 
+govulncheck: ## Run Go vulnerability analysis.
+	$(GOVULNCHECK) ./...
+
+golangci-lint: ## Run golangci-lint.
+	$(GOLANGCI_LINT) run ./...
+
 test: ## Run Go tests.
 	$(GO) test -buildvcs=false -ldflags "$(LDFLAGS)" -count=1 ./...
 
 test-race: ## Run Go tests with the race detector.
-	CGO_ENABLED=1 $(GO) test -buildvcs=false -race -ldflags "$(LDFLAGS)" -count=1 ./...
+	@packages="$$($(GO) list -buildvcs=false -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./...)"; \
+	if [ -z "$$packages" ]; then \
+		echo "no test packages"; \
+		exit 0; \
+	fi; \
+	CGO_ENABLED=1 $(GO) test -buildvcs=false -race -ldflags "$(LDFLAGS)" -count=1 $$packages
 
 coverage: ## Run tests with coverage and write coverage reports.
 	$(GO) test -buildvcs=false -ldflags "$(LDFLAGS)" -covermode=atomic -coverprofile=$(COVERAGE_PROFILE) -count=1 ./...
@@ -105,14 +116,20 @@ smoke: ## Build and smoke-test the local binary.
 	CGO_ENABLED=$(CGO_ENABLED) $(GO) build -buildvcs=false -trimpath -ldflags "$(SMOKE_LDFLAGS)" -o $(SMOKE_BINARY) $(MAIN_PACKAGE)
 	RUN_BINARY_SMOKE=1 GO="$(GO)" EXPORTER_SMOKE_BINARY="$(SMOKE_BINARY)" $(GO) test -buildvcs=false -ldflags "$(SMOKE_LDFLAGS)" ./smoke -run TestBinarySmoke -count=1
 
-docker-build: ## Build the Docker image.
+require-rendered-template:
+	@if [ "$(PROJECT_NAME)" = "$(SCAFFOLD_TEMPLATE_PROJECT_NAME)" ]; then \
+		echo "scaffold template must be rendered before running build targets" >&2; \
+		exit 2; \
+	fi
+
+docker-build: require-rendered-template ## Build the Docker image.
 	$(DOCKER) build \
 		--build-arg LDFLAGS="$(LDFLAGS)" \
 		--build-arg PROJECT_NAME=$(PROJECT_NAME) \
 		-t $(DOCKER_IMAGE) \
 		.
 
-docker-buildx: ## Build a multi-platform Docker image with buildx.
+docker-buildx: require-rendered-template ## Build a multi-platform Docker image with buildx.
 	$(DOCKER) buildx build \
 		--platform $(DOCKER_PLATFORMS) \
 		--build-arg LDFLAGS="$(LDFLAGS)" \
@@ -120,7 +137,7 @@ docker-buildx: ## Build a multi-platform Docker image with buildx.
 		-t $(DOCKER_IMAGE) \
 		.
 
-docker-buildx-push: ## Build and push a multi-platform Docker image with buildx.
+docker-buildx-push: require-rendered-template ## Build and push a multi-platform Docker image with buildx.
 	$(DOCKER) buildx build \
 		--push \
 		--platform $(DOCKER_PLATFORMS) \
@@ -147,7 +164,7 @@ compose: ## Run Docker Compose with Makefile.mk variables. Override COMPOSE_ARGS
 	COMPOSE_PROJECT_NAME="$(COMPOSE_PROJECT_NAME)" \
 	PROJECT_NAME="$(PROJECT_NAME)" \
 	PROJECT_DESC="$(PROJECT_DESC)" \
-	FEATURE_NAME="$(FEATURE_NAME)" \
+	FEATURE_NAME="$(COMPOSE_FEATURE_NAME)" \
 	FEATURE_CONFIG_FILE="$(FEATURE_CONFIG_FILE)" \
 	FEATURE_CONFIG_PATH="$(FEATURE_CONFIG_PATH)" \
 	FEATURE_CONFIG_CONTAINER_PATH="$(FEATURE_CONFIG_CONTAINER_PATH)" \
@@ -173,7 +190,7 @@ compose-config: ## Validate the Docker Compose example.
 
 examples-check: promtool-check promtool-rules-test compose-config ## Validate shipped Prometheus and Compose examples.
 
-docker-smoke-build: ## Build the Docker image used by docker-smoke.
+docker-smoke-build: require-rendered-template ## Build the Docker image used by docker-smoke.
 	$(MAKE) docker-build \
 		DOCKER_IMAGE=$(SMOKE_DOCKER_IMAGE) \
 		LDFLAGS="$(SMOKE_LDFLAGS)"
@@ -240,7 +257,7 @@ docker-smoke: docker-smoke-build ## Build and smoke-test the Docker image.
 		DOCKER_SMOKE_EXPECTED_BRANCH="$(SMOKE_BRANCH)" \
 		DOCKER_SMOKE_EXPECTED_REVISION="$(SMOKE_REVISION)"
 
-go-check: fmt-check vet staticcheck coverage-check smoke test-race ## Run Go checks that do not require Docker.
+go-check: fmt-check vet staticcheck golangci-lint govulncheck coverage-check smoke test-race ## Run Go checks that do not require Docker.
 
 check: go-check examples-check ## Run the standard maintenance check.
 
