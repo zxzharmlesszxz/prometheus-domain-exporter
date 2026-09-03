@@ -125,7 +125,6 @@ require-rendered-template:
 docker-build: require-rendered-template ## Build the Docker image.
 	$(DOCKER) build \
 		--build-arg LDFLAGS="$(LDFLAGS)" \
-		--build-arg PROJECT_NAME=$(PROJECT_NAME) \
 		-t $(DOCKER_IMAGE) \
 		.
 
@@ -133,7 +132,6 @@ docker-buildx: require-rendered-template ## Build a multi-platform Docker image 
 	$(DOCKER) buildx build \
 		--platform $(DOCKER_PLATFORMS) \
 		--build-arg LDFLAGS="$(LDFLAGS)" \
-		--build-arg PROJECT_NAME=$(PROJECT_NAME) \
 		-t $(DOCKER_IMAGE) \
 		.
 
@@ -142,7 +140,6 @@ docker-buildx-push: require-rendered-template ## Build and push a multi-platform
 		--push \
 		--platform $(DOCKER_PLATFORMS) \
 		--build-arg LDFLAGS="$(LDFLAGS)" \
-		--build-arg PROJECT_NAME=$(PROJECT_NAME) \
 		-t $(DOCKER_IMAGE) \
 		.
 
@@ -268,4 +265,7 @@ clean: ## Remove generated local artifacts.
 	rm -f $(COVERAGE_PROFILE) $(COVERAGE_REPORT)
 
 size:
-	@du -h dist/$(PROJECT_NAME)*
+	@targets="$$(find $(DIST_DIR) -maxdepth 1 \( -name '$(PROJECT_NAME)*' -o -name '$(notdir $(BUILD_OUTPUT))' \) -print 2>/dev/null | sort)"; \
+	if [ -n "$$targets" ]; then \
+		du -h $$targets; \
+	fi

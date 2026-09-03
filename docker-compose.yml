@@ -3,7 +3,6 @@ services:
     build:
       context: .
       args:
-        PROJECT_NAME: ${PROJECT_NAME:-exporter}
         LDFLAGS: ${LDFLAGS:-}
     command:
       - --web.listen-address=:${COMPOSE_EXPORTER_PORT:-9853}
@@ -16,7 +15,7 @@ services:
       - "127.0.0.1:${COMPOSE_EXPORTER_PORT:-9853}:${COMPOSE_EXPORTER_PORT:-9853}"
 
   prometheus:
-    image: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.13.1}
+    image: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.14.0}
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -33,7 +32,7 @@ services:
       - ./examples/prometheus/:/etc/prometheus/rules/:ro
 
   grafana:
-    image: ${GRAFANA_IMAGE:-grafana/grafana:13.0.3}
+    image: ${GRAFANA_IMAGE:-grafana/grafana:13.2}
     ports:
       - "127.0.0.1:3000:3000"
     environment:
