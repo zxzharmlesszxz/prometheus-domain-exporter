@@ -142,3 +142,29 @@ func TestWHOISAddress(t *testing.T) {
 		t.Fatalf("whoisAddress() = %q, want existing port", got)
 	}
 }
+
+func TestQueryWHOISRetriesWithinTimeout(t *testing.T) {
+	t.Parallel()
+
+	const timeout = 10 * time.Second
+	attempts := 0
+	response, err := queryWHOISWithRetry(context.Background(), timeout, "whois.example.test", "example.test", func(_ context.Context, gotTimeout time.Duration, server, query string) (string, error) {
+		attempts++
+		if gotTimeout != timeout/2 {
+			t.Fatalf("attempt timeout = %s, want %s", gotTimeout, timeout/2)
+		}
+		if server != "whois.example.test" || query != "example.test" {
+			t.Fatalf("WHOIS query = %q to %q", query, server)
+		}
+		if attempts == 1 {
+			return "", fmt.Errorf("dial timeout")
+		}
+		return "response", nil
+	})
+	if err != nil {
+		t.Fatalf("queryWHOISWithRetry() error = %v, want nil", err)
+	}
+	if response != "response" || attempts != 2 {
+		t.Fatalf("queryWHOISWithRetry() = %q after %d attempts, want response after 2", response, attempts)
+	}
+}

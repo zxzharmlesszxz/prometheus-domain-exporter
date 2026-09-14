@@ -17,6 +17,7 @@ const (
 )
 
 type whoisQueryFunc func(context.Context, string, string) (string, error)
+type whoisAttemptFunc func(context.Context, time.Duration, string, string) (string, error)
 
 type whoisService struct {
 	server    string
@@ -123,7 +124,33 @@ func (l *WHOISExpirationLookup) cachedServiceServer(tld string, now time.Time) (
 	return service.server, true
 }
 
-func queryWHOIS(ctx context.Context, timeout time.Duration, server, query string) (_ string, err error) {
+func queryWHOIS(ctx context.Context, timeout time.Duration, server, query string) (string, error) {
+	return queryWHOISWithRetry(ctx, timeout, server, query, queryWHOISOnce)
+}
+
+func queryWHOISWithRetry(ctx context.Context, timeout time.Duration, server, query string, attempt whoisAttemptFunc) (string, error) {
+	attemptTimeout := timeout / 2
+	if attemptTimeout <= 0 {
+		attemptTimeout = timeout
+	}
+
+	var lastErr error
+	for range 2 {
+		attemptCtx, cancel := context.WithTimeout(ctx, attemptTimeout)
+		response, err := attempt(attemptCtx, attemptTimeout, server, query)
+		cancel()
+		if err == nil {
+			return response, nil
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			break
+		}
+	}
+	return "", lastErr
+}
+
+func queryWHOISOnce(ctx context.Context, timeout time.Duration, server, query string) (_ string, err error) {
 	address := whoisAddress(server)
 	dialer := net.Dialer{Timeout: timeout}
 	conn, err := dialer.DialContext(ctx, "tcp", address)
