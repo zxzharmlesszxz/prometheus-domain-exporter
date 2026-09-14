@@ -23,18 +23,34 @@ Useful flags:
 --domain.timeout
 --domain.max-concurrent-targets
 --web.listen-address
+--web.config.file
 --web.telemetry-path
 --web.enable-pprof
 --log.level
 --log.format
+--version
 ```
 
 By default, the exporter listens on `:9853` and refreshes data every `1h`.
-The Docker Compose setup passes `--domain.config-file=/etc/prometheus/prometheus-domain-exporter.yml` explicitly. If no `--domain.config-file` flag is provided, defaults and CLI flags are used; a config file is not required.
+The Docker Compose setup passes `--domain.config-file=/etc/prometheus/prometheus-domain-exporter.yml` explicitly. If the flag is omitted, the exporter loads that default path when it exists; otherwise it uses defaults and CLI flags, so a config file is not required.
 The generated `examples/prometheus-domain-exporter.yml` file lists every supported domain config key with its default value.
 Make, Compose, and smoke defaults use `FEATURE_CONFIG_FILE`, which defaults to `prometheus-domain-exporter.yml`, and pass that path explicitly with `--domain.config-file=...`.
 Runtime config can always be overridden with another `--domain.config-file=...` value.
 Configure one or more domains with repeatable `--domain.target` flags. Data refresh runs through the framework snapshot collector in a background worker; scrapes return the last collected snapshot.
+Successful registration lookups are cached per domain with the framework TTL
+cache. At each successful external lookup, domains expiring in more than 30 days
+receive a 24-hour TTL, domains expiring in more than 7 and at most 30 days
+receive a 6-hour TTL, and domains expiring in 7 days or less receive a 1-hour
+TTL. The cache is in memory and is cleared when the exporter restarts. Failed or
+incomplete lookups are not cached and are retried on the next background refresh.
+
+The exporter also keeps the last confirmed registration expiration per domain.
+A temporary RDAP or WHOIS failure leaves the expiration metrics available while
+the current lookup and collection health metrics report the failure. The
+last-known-good metrics expose its last-success timestamp, availability,
+staleness, and consecutive refresh failures; age is derived from the timestamp.
+Data becomes stale 24 hours after its last successful external lookup. An
+authoritative not-found response clears the saved registration data.
 
 ## Configuration Example
 
@@ -64,6 +80,8 @@ bootstrap for `.io`; for TLDs such as `.ws`, it discovers the registry WHOIS
 server through IANA and reads the expiration date over the standard TCP port 43
 protocol. WHOIS traffic is not encrypted, so deployments using fallback must
 allow outbound TCP port 43 and account for that protocol in their network policy.
+Each WHOIS TCP query is attempted at most twice within the configured per-domain
+timeout; cancellation stops further attempts.
 
 ## Metrics
 
@@ -77,6 +95,12 @@ domain_registration_lookup_verified{domain="example.com"} 1
 domain_registration_lookup_timestamp_seconds{domain="example.com"} 1742812800
 domain_registration_expiration_timestamp_seconds{domain="example.com"} 1893456000
 domain_registration_expiration_remaining_seconds{domain="example.com"} 150643200
+domain_registration_last_success_timestamp_seconds{domain="example.com"} 1742812800
+domain_registration_consecutive_failures{domain="example.com"} 0
+domain_registration_data_available{domain="example.com"} 1
+domain_registration_data_stale{domain="example.com"} 0
+domain_cache_entries{cache="registration"} 3
+domain_cache_hits_total{cache="registration"} 5
 domain_rdap_up{source="rdap"} 1
 domain_rdap_valid{source="rdap"} 1
 domain_rdap_scrape_duration_seconds{source="rdap"} 0.452
@@ -91,16 +115,20 @@ domain_exporter_last_successful_collection_timestamp_seconds 1742812800
 
 Domain metrics use the `domain` feature namespace. Framework-owned exporter
 collection metrics use the `domain_exporter` metric namespace. The full metric
-contract lives in [`METRICS.md`](METRICS.md).
+contract, including framework runtime and Prometheus-side scrape metrics, lives
+in [`METRICS.md`](METRICS.md).
 
 ## Docker Compose
 
 The repository includes [`docker-compose.yml`](docker-compose.yml) for local testing.
-The Prometheus scrape config is embedded in Compose, while alerting rules live
-under [`examples/prometheus`](examples/prometheus).
+The Prometheus scrape config is embedded in Compose. Prometheus-managed alert
+rules live under [`examples/prometheus`](examples/prometheus), while equivalent
+Grafana-managed rules live under
+[`examples/grafana/alerting`](examples/grafana/alerting).
 The bundled rules cover exporter availability, framework collection
-failure/staleness, RDAP and WHOIS source health, per-domain lookup failure, expiration
-windows, and incomplete lookup coverage.
+failure/staleness, RDAP and WHOIS source health, per-domain lookup failure,
+last-known-good data availability/staleness, expiration windows, and incomplete
+lookup coverage.
 It starts:
 
 - `exporter`
@@ -119,12 +147,20 @@ Endpoints:
 - `http://localhost:9090`
 - `http://localhost:3000`
 
+The container image is based on Alpine 3.24 and includes CA certificates plus
+pinned OpenSSL runtime libraries for HTTPS RDAP requests. The exporter, its
+container health check, and the Prometheus target use the fixed internal port
+`9853`. `COMPOSE_EXPORTER_HOST_PORT` changes only the host-side port published
+by Docker Compose.
+
 ## Grafana
 
 Docker Compose provisions Grafana with:
 
 - Prometheus datasource `DS_PROMETHEUS`
 - dashboards from [`examples/grafana`](examples/grafana)
+- Grafana-managed alert rules from
+  [`examples/grafana/alerting`](examples/grafana/alerting)
 - default login `admin` / `admin`
 
 Open `http://localhost:3000` after `make compose`.
@@ -132,6 +168,15 @@ The main dashboard uses the Grafana v2 dashboard resource model and includes
 domain status stats, a detailed Inventory table, registration source-health
 graphs, historical changes, exporter collection health, Go runtime panels, and
 Prometheus scrape health.
+
+The Grafana-managed rules mirror the bundled Prometheus rules and carry
+`service="prometheus-domain-exporter"` and `rule_source="grafana"` labels for
+notification-policy routing. Contact points and notification policies are not
+bundled because their credentials and ownership are deployment-specific. To
+deliver notifications through Grafana, configure a contact point and route a
+notification policy using those labels. Grafana evaluates its copies every
+`30s`; their pending and firing state is independent from Prometheus-managed
+rules.
 
 For a direct Docker build, run:
 
@@ -155,7 +200,9 @@ make docker-smoke
 make full-check
 ```
 
-`make go-check` runs Go-only checks. `make check` also validates the Prometheus and Docker Compose examples, so it requires Docker.
+`make go-check` runs Go-only checks, including the contract test that keeps
+Prometheus and Grafana alert metadata and expressions synchronized. `make check`
+also validates the Prometheus and Docker Compose examples, so it requires Docker.
 
 ## Scaffold-Owned Go Files
 
@@ -170,17 +217,17 @@ domain check package. The feature package `Snapshot` aggregate lives in
 Build local release artifacts:
 
 ```bash
-make build VERSION=v0.1.0
-make release VERSION=v0.1.0
-make release-smoke VERSION=v0.1.0
+make build VERSION=vX.Y.Z
+make release VERSION=vX.Y.Z
+make release-smoke VERSION=vX.Y.Z
 ```
 
 Build and push a Docker image:
 
 ```bash
-make docker-build VERSION=v0.1.0 DOCKER_IMAGE=prometheus-domain-exporter:v0.1.0
-make docker-push DOCKER_IMAGE=prometheus-domain-exporter:v0.1.0
-make docker-buildx-push VERSION=v0.1.0 DOCKER_IMAGE=registry.example.com/prometheus-domain-exporter:v0.1.0
+make docker-build VERSION=vX.Y.Z DOCKER_IMAGE=prometheus-domain-exporter:vX.Y.Z
+make docker-push DOCKER_IMAGE=prometheus-domain-exporter:vX.Y.Z
+make docker-buildx-push VERSION=vX.Y.Z DOCKER_IMAGE=registry.example.com/prometheus-domain-exporter:vX.Y.Z
 ```
 
 ## Architecture
