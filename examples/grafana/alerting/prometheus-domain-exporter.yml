@@ -1,0 +1,1045 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: prometheus-domain-exporter
+    folder: Exporters
+    interval: 30s
+    rules:
+      - uid: pde-exporter-down
+        title: domainExporterDown
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "up{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A == 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Prometheus Domain Exporter is down"
+          description: "Prometheus cannot scrape prometheus-domain-exporter."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-collection-failed
+        title: domainExporterCollectionFailed
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "domain_exporter_last_collection_success{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A == 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Prometheus Domain Exporter collection is failing"
+          description: "prometheus-domain-exporter has not completed a successful collection for at least 10 minutes."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-collection-stale
+        title: domainExporterCollectionStale
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "time() - (domain_exporter_last_successful_collection_timestamp_seconds{job=~\"^(prometheus[_-])?domain[_-]exporter$\"} > 0)"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A > 7200"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Prometheus Domain Exporter collection is stale"
+          description: "prometheus-domain-exporter has not refreshed domain data successfully for more than 2 hours."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-rdap-source-down
+        title: domainRDAPSourceDown
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "domain_rdap_up{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A == 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Domain RDAP source is unavailable"
+          description: "prometheus-domain-exporter cannot collect RDAP data on {{ $labels.instance }}."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-rdap-source-invalid
+        title: domainRDAPSourceInvalid
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "domain_rdap_up{job=~\"^(prometheus[_-])?domain[_-]exporter$\"} == 1 and domain_rdap_valid{job=~\"^(prometheus[_-])?domain[_-]exporter$\"} == 0"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A > 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Domain RDAP source is readable but invalid"
+          description: "prometheus-domain-exporter collected RDAP data on {{ $labels.instance }}, but one or more configured domains could not be interpreted successfully."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-rdap-read-errors
+        title: domainRDAPReadErrors
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "increase(domain_rdap_read_errors_total{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}[30m])"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A > 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        annotations:
+          summary: "Domain RDAP read errors observed"
+          description: "prometheus-domain-exporter observed one or more RDAP read/lookup errors in the last 30 minutes."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-rdap-parse-errors
+        title: domainRDAPParseErrors
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "increase(domain_rdap_parse_errors_total{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}[30m])"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A > 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        annotations:
+          summary: "Domain RDAP parse errors observed"
+          description: "prometheus-domain-exporter observed one or more RDAP parse/validity errors in the last 30 minutes."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-whois-source-down
+        title: domainWHOISSourceDown
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "domain_whois_up{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A == 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Domain WHOIS source is unavailable"
+          description: "prometheus-domain-exporter cannot collect WHOIS data on {{ $labels.instance }}."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-whois-source-invalid
+        title: domainWHOISSourceInvalid
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "domain_whois_up{job=~\"^(prometheus[_-])?domain[_-]exporter$\"} == 1 and domain_whois_valid{job=~\"^(prometheus[_-])?domain[_-]exporter$\"} == 0"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A > 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "Domain WHOIS source is readable but invalid"
+          description: "prometheus-domain-exporter collected WHOIS data on {{ $labels.instance }}, but one or more configured domains could not be interpreted successfully."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-whois-read-errors
+        title: domainWHOISReadErrors
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "increase(domain_whois_read_errors_total{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}[30m])"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A > 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        annotations:
+          summary: "Domain WHOIS read errors observed"
+          description: "prometheus-domain-exporter observed one or more WHOIS read/lookup errors in the last 30 minutes."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-whois-parse-errors
+        title: domainWHOISParseErrors
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "increase(domain_whois_parse_errors_total{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}[30m])"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A > 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        annotations:
+          summary: "Domain WHOIS parse errors observed"
+          description: "prometheus-domain-exporter observed one or more WHOIS parse/validity errors in the last 30 minutes."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-lookup-failed
+        title: domainRegistrationLookupFailed
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "domain_registration_lookup_success{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A == 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: "Domain registration lookup failed"
+          description: "prometheus-domain-exporter cannot resolve registration expiration for {{ $labels.domain }}."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-data-unavailable
+        title: domainRegistrationDataUnavailable
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "domain_registration_data_available{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A == 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: "Domain registration data is unavailable"
+          description: "prometheus-domain-exporter has no confirmed registration expiration for {{ $labels.domain }}."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-data-stale
+        title: domainRegistrationDataStale
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "domain_registration_data_stale{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A == 1"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: "Domain registration data is stale"
+          description: "The last confirmed registration expiration for {{ $labels.domain }} is at least 24 hours old."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-expiring-soon
+        title: domainRegistrationExpiringSoon
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "domain_registration_expiration_remaining_seconds{job=~\"^(prometheus[_-])?domain[_-]exporter$\"} >= 7 * 24 * 60 * 60 and domain_registration_expiration_remaining_seconds{job=~\"^(prometheus[_-])?domain[_-]exporter$\"} < 30 * 24 * 60 * 60"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A > 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 30m
+        annotations:
+          summary: "Domain registration expires soon"
+          description: "Domain {{ $labels.domain }} registration expires in less than 30 days."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-expiring-7-days
+        title: domainRegistrationExpiringIn7Days
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "domain_registration_expiration_remaining_seconds{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A < 7 * 24 * 60 * 60"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 30m
+        annotations:
+          summary: "Domain registration expiry is critical"
+          description: "Domain {{ $labels.domain }} registration expires in less than 7 days or has already expired."
+        labels:
+          severity: critical
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
+      - uid: pde-lookup-incomplete
+        title: domainRegistrationLookupIncomplete
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: DS_PROMETHEUS
+            model:
+              datasource:
+                type: prometheus
+                uid: DS_PROMETHEUS
+              editorMode: code
+              expr: "max by (instance) (domain_exporter_configured_domains{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}) - (count by (instance) (domain_registration_lookup_success{job=~\"^(prometheus[_-])?domain[_-]exporter$\"}) or max by (instance) (domain_exporter_configured_domains{job=~\"^(prometheus[_-])?domain[_-]exporter$\"} * 0))"
+              instant: true
+              intervalMs: 15000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: "$A > 0"
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: math
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: "Some domains not yet looked up"
+          description: "{{ $values.A.Value | humanize }} configured domain(s) have not reported registration lookup status."
+        labels:
+          severity: warning
+          service: prometheus-domain-exporter
+          rule_source: grafana
+        isPaused: false
