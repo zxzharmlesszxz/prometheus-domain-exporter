@@ -5,9 +5,24 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
+
+type countingExpirationLookup struct {
+	expiration time.Time
+	err        error
+	calls      atomic.Int64
+}
+
+func (l *countingExpirationLookup) LookupExpiration(context.Context, string) (time.Time, bool, error) {
+	l.calls.Add(1)
+	if l.err != nil {
+		return time.Time{}, false, l.err
+	}
+	return l.expiration, true, nil
+}
 
 type fakeExpirationLookup struct {
 	expirations map[string]time.Time
@@ -167,6 +182,72 @@ func TestNewCheckerPreservesExplicitTimeout(t *testing.T) {
 	}
 	if checker.MaxConcurrentTargets != 2 {
 		t.Fatalf("MaxConcurrentTargets = %d, want 2", checker.MaxConcurrentTargets)
+	}
+}
+
+func TestCheckerCachesSuccessfulDomainLookup(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_700_000_000, 0)
+	lookup := &countingExpirationLookup{expiration: now.Add(90 * 24 * time.Hour)}
+	checker := NewChecker([]string{"example.com"}, DefaultTimeout, 1)
+	checker.Lookup = lookup
+
+	first := checker.Snapshot(context.Background(), now)
+	second := checker.Snapshot(context.Background(), now.Add(time.Minute))
+	checker.cache.Delete("example.com")
+	third := checker.Snapshot(context.Background(), now.Add(2*time.Minute))
+	if !first.Success || !second.Success || !third.Success {
+		t.Fatalf("cached snapshots success = %v, %v, %v, want all true", first.Success, second.Success, third.Success)
+	}
+	if calls := lookup.calls.Load(); calls != 2 {
+		t.Fatalf("lookup calls = %d, want 2", calls)
+	}
+	if !second.Domains[0].LookupTime.Equal(now) {
+		t.Fatalf("cached lookup time = %v, want %v", second.Domains[0].LookupTime, now)
+	}
+	stats := checker.CacheStats()
+	if stats.Entries != 1 || stats.Hits != 1 || stats.Misses != 2 || stats.Sets != 2 || stats.Deletes != 1 {
+		t.Fatalf("cache stats = %#v, want one entry, hit, and delete plus two misses and sets", stats)
+	}
+}
+
+func TestCheckerDoesNotCacheFailedDomainLookup(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_700_000_000, 0)
+	lookup := &countingExpirationLookup{err: errors.New("lookup unavailable")}
+	checker := NewChecker([]string{"example.com"}, DefaultTimeout, 1)
+	checker.Lookup = lookup
+
+	checker.Snapshot(context.Background(), now)
+	checker.Snapshot(context.Background(), now.Add(time.Minute))
+	if calls := lookup.calls.Load(); calls != 2 {
+		t.Fatalf("lookup calls = %d, want failed lookup retried", calls)
+	}
+	stats := checker.CacheStats()
+	if stats.Entries != 0 || stats.Misses != 2 || stats.Sets != 0 {
+		t.Fatalf("cache stats = %#v, want two misses and no entries or sets", stats)
+	}
+}
+
+func TestLookupCacheTTL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		remaining time.Duration
+		want      time.Duration
+	}{
+		{remaining: 31 * 24 * time.Hour, want: 24 * time.Hour},
+		{remaining: 30 * 24 * time.Hour, want: 6 * time.Hour},
+		{remaining: 8 * 24 * time.Hour, want: 6 * time.Hour},
+		{remaining: 7 * 24 * time.Hour, want: time.Hour},
+		{remaining: -time.Hour, want: time.Hour},
+	}
+	for _, tt := range tests {
+		if got := lookupCacheTTL(tt.remaining); got != tt.want {
+			t.Errorf("lookupCacheTTL(%v) = %v, want %v", tt.remaining, got, tt.want)
+		}
 	}
 }
 

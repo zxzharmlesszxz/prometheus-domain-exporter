@@ -13,6 +13,7 @@ const (
 
 	metricRDAPSource  = "rdap"
 	metricWHOISSource = "whois"
+	registrationCache = "registration"
 )
 
 var rdapMetricIDs = featurekit.FileScrapeMetricIDsFor(metricRDAPSource)
@@ -27,8 +28,28 @@ var domainSourceLabels = []string{
 	"source",
 }
 
-var rdapMetricSpecs = featurekit.FileScrapeMetricSpecs(metricRDAPSource, []string{"source"})
-var whoisMetricSpecs = featurekit.FileScrapeMetricSpecs(metricWHOISSource, []string{"source"})
+var rdapMetricSpecs = registrationSourceMetricSpecs(metricRDAPSource)
+var whoisMetricSpecs = registrationSourceMetricSpecs(metricWHOISSource)
+var cacheMetricSpecs = featurekit.TTLCacheMetricSpecs(nil)
+
+func registrationSourceMetricSpecs(source string) []featurekit.FeatureMetricSpec {
+	ids := featurekit.FileScrapeMetricIDsFor(source)
+	help := map[string]string{
+		ids.MTimeSeconds:          "Unix timestamp represented by the current " + source + " source-health snapshot.",
+		ids.Up:                    "Whether the latest " + source + " results had no lookup or source errors.",
+		ids.Valid:                 "Whether the latest " + source + " results were verified and included registration expiration.",
+		ids.ReadErrorsTotal:       "Cumulative total number of " + source + " lookup or source errors.",
+		ids.ParseErrorsTotal:      "Cumulative total number of " + source + " response parsing or validity errors.",
+		ids.ScrapeDurationSeconds: "Duration in seconds of the latest domain refresh that included " + source + " results.",
+	}
+	specs := featurekit.FileScrapeMetricSpecs(source, []string{"source"})
+	for i := range specs {
+		if value, ok := help[specs[i].ID]; ok {
+			specs[i].Help = value
+		}
+	}
+	return specs
+}
 
 var domainMetricSpecs = []featurekit.FeatureMetricSpec{
 	{
@@ -81,4 +102,4 @@ var domainMetricSpecs = []featurekit.FeatureMetricSpec{
 	},
 }
 
-var featureMetricSpecs = append(append(append([]featurekit.FeatureMetricSpec{}, domainMetricSpecs...), rdapMetricSpecs...), whoisMetricSpecs...)
+var featureMetricSpecs = append(append(append(append([]featurekit.FeatureMetricSpec{}, domainMetricSpecs...), rdapMetricSpecs...), whoisMetricSpecs...), cacheMetricSpecs...)

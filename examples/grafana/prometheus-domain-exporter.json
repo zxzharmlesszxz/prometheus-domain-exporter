@@ -237,8 +237,8 @@
         "kind": "Panel",
         "spec": {
           "id": 3,
-          "title": "Last Collection Age",
-          "description": "Age of the stalest latest framework collection attempt across selected exporter instances.",
+          "title": "Last Refresh Attempt Age",
+          "description": "Age of the stalest latest framework refresh attempt across selected exporter instances.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -305,11 +305,11 @@
                         "color": "green"
                       },
                       {
-                        "value": 300,
+                        "value": 4500,
                         "color": "yellow"
                       },
                       {
-                        "value": 900,
+                        "value": 7200,
                         "color": "red"
                       }
                     ]
@@ -328,8 +328,8 @@
         "kind": "Panel",
         "spec": {
           "id": 4,
-          "title": "Last Successful Age",
-          "description": "Age of the stalest latest successful framework collection across selected exporter instances that have succeeded.",
+          "title": "Last Successful Refresh Age",
+          "description": "Age of the stalest latest successful framework refresh across selected exporter instances that have succeeded.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -396,11 +396,11 @@
                         "color": "green"
                       },
                       {
-                        "value": 300,
+                        "value": 4500,
                         "color": "yellow"
                       },
                       {
-                        "value": 900,
+                        "value": 7200,
                         "color": "red"
                       }
                     ]
@@ -3366,7 +3366,7 @@
         "spec": {
           "id": 31,
           "title": "Failed Lookups",
-          "description": "Number of Domain registration checks that returned an error (connection timeout, RDAP lookup failure, or DNS resolution error)",
+          "description": "Number of domain registration lookups that returned a transport, service, or response-parsing error.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -3457,7 +3457,7 @@
         "spec": {
           "id": 32,
           "title": "Unverified Domains",
-          "description": "Domains that could not be verified by RDAP",
+          "description": "Domains that the selected RDAP or WHOIS source did not verify as registered.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -3730,7 +3730,7 @@
         "spec": {
           "id": 36,
           "title": "Lookup Health by Domain",
-          "description": "Successful checks and chain verification over time",
+          "description": "Registration lookup completion and domain verification state over time.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -4080,8 +4080,8 @@
         "kind": "Panel",
         "spec": {
           "id": 39,
-          "title": "Latest Lookup Age",
-          "description": "Time since the most recent successful domain registration lookup",
+          "title": "Latest External Lookup Age",
+          "description": "Time since the most recent external domain registration lookup attempt per exporter instance.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -4391,7 +4391,7 @@
         "spec": {
           "id": 42,
           "title": "Lookup Changes",
-          "description": "Number of chain verification state changes over the last 24 hours",
+          "description": "Number of domain registration verification state changes over the last 24 hours.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -4689,8 +4689,8 @@
         "kind": "Panel",
         "spec": {
           "id": 46,
-          "title": "Lookup Age",
-          "description": "Age of the most recent domain registration lookup across selected targets.",
+          "title": "Oldest External Lookup Age",
+          "description": "Age of the oldest external domain registration lookup across selected targets.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -4708,7 +4708,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "time() - max(domain_registration_lookup_timestamp_seconds{job=~\"$job\"})",
+                        "expr": "max(time() - domain_registration_lookup_timestamp_seconds{job=~\"$job\"})",
                         "legendFormat": "age",
                         "range": false,
                         "instant": true
@@ -4756,11 +4756,11 @@
                         "color": "green"
                       },
                       {
-                        "value": 300,
+                        "value": 86400,
                         "color": "yellow"
                       },
                       {
-                        "value": 900,
+                        "value": 93600,
                         "color": "red"
                       }
                     ]
@@ -5345,7 +5345,7 @@
         "spec": {
           "id": 27,
           "title": "Source MTime Age",
-          "description": "Age of the latest source timestamp emitted by source collectors.",
+          "description": "Age of the timestamp represented by each registration source; active sources retain their latest external lookup time.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -5463,7 +5463,7 @@
         "spec": {
           "id": 28,
           "title": "Source Refresh Duration",
-          "description": "Duration of source refresh work emitted by source collectors.",
+          "description": "Duration of the complete domain refresh represented by each source-health series.",
           "links": [],
           "data": {
             "kind": "QueryGroup",

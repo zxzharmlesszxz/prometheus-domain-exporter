@@ -44,6 +44,7 @@ func newSnapshotEngine(config Config) (featurekit.SnapshotEngine[Snapshot], erro
 
 		return Snapshot{
 			domain:      domainSnapshot,
+			CacheStats:  checker.CacheStats(),
 			RDAPResult:  rdapResult,
 			RDAPValid:   rdapValid,
 			WHOISResult: whoisResult,
@@ -68,14 +69,28 @@ func buildSourceResult(snapshot domaincheck.Snapshot, source string, now time.Ti
 	}
 	counters.read.Add(readErrorCount)
 	counters.parse.Add(parseErrorCount)
+	mtime := latestSourceLookupTime(snapshot, source)
+	if mtime.IsZero() {
+		mtime = now
+	}
 	return framework.FileScrapeResult{
 		Path:                  source,
 		Up:                    readErrorCount == 0,
-		MTimeSeconds:          float64(now.Unix()),
+		MTimeSeconds:          float64(mtime.Unix()),
 		ReadErrorsTotal:       counters.read.Load(),
 		ParseErrorsTotal:      counters.parse.Load(),
 		ScrapeDurationSeconds: duration,
 	}, readErrorCount == 0 && parseErrorCount == 0
+}
+
+func latestSourceLookupTime(snapshot domaincheck.Snapshot, source string) time.Time {
+	var latest time.Time
+	for _, result := range snapshot.Domains {
+		if result.Source == source && result.LookupTime.After(latest) {
+			latest = result.LookupTime
+		}
+	}
+	return latest
 }
 
 func classifySourceErrors(snapshot domaincheck.Snapshot, source string) (bool, uint64, uint64) {

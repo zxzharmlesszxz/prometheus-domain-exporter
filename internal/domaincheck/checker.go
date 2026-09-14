@@ -6,12 +6,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zxzharmlesszxz/prometheus-exporter-framework/exporter/featurekit"
 	"golang.org/x/net/idna"
 )
 
 const (
 	DefaultTimeout              = 10 * time.Second
 	DefaultMaxConcurrentTargets = 8
+	distantExpirationThreshold  = 30 * 24 * time.Hour
+	nearExpirationThreshold     = 7 * 24 * time.Hour
+	distantLookupCacheTTL       = 24 * time.Hour
+	nearLookupCacheTTL          = 6 * time.Hour
+	criticalLookupCacheTTL      = time.Hour
 )
 
 type Checker struct {
@@ -19,6 +25,7 @@ type Checker struct {
 	Lookup               ExpirationLookup
 	Timeout              time.Duration
 	MaxConcurrentTargets int
+	cache                *featurekit.TTLCache[string, Result]
 }
 
 func NewChecker(domains []string, lookupTimeout time.Duration, maxConcurrent int) Checker {
@@ -29,7 +36,12 @@ func NewChecker(domains []string, lookupTimeout time.Duration, maxConcurrent int
 		Lookup:               NewRegistrationExpirationLookup(lookupTimeout),
 		Timeout:              lookupTimeout,
 		MaxConcurrentTargets: maxConcurrent,
+		cache:                featurekit.NewTTLCache[string, Result](0),
 	}
+}
+
+func (c Checker) CacheStats() featurekit.TTLCacheStats {
+	return c.cache.Stats()
 }
 
 type domainCheckJob struct {
@@ -51,6 +63,10 @@ func (c Checker) Snapshot(ctx context.Context, now time.Time) Snapshot {
 	if lookup == nil {
 		lookup = NewRegistrationExpirationLookup(lookupTimeout)
 	}
+	cache := c.cache
+	if cache == nil {
+		cache = featurekit.NewTTLCache[string, Result](0)
+	}
 
 	results := make([]Result, len(c.Targets))
 	jobs := make(chan domainCheckJob)
@@ -64,6 +80,11 @@ func (c Checker) Snapshot(ctx context.Context, now time.Time) Snapshot {
 	for i := 0; i < maxConcurrent; i++ {
 		wg.Go(func() {
 			for job := range jobs {
+				if cached, ok := cache.Get(job.Name); ok {
+					results[job.Index] = cached
+					continue
+				}
+
 				domainCtx, cancel := context.WithTimeout(ctx, lookupTimeout)
 				expiration, verified, source, err := lookupExpiration(domainCtx, lookup, job.Name)
 				cancel()
@@ -73,7 +94,7 @@ func (c Checker) Snapshot(ctx context.Context, now time.Time) Snapshot {
 					name = unicodeName
 				}
 
-				results[job.Index] = Result{
+				result := Result{
 					Name:       name,
 					LookupTime: now,
 					Expiration: expiration,
@@ -81,6 +102,10 @@ func (c Checker) Snapshot(ctx context.Context, now time.Time) Snapshot {
 					Success:    err == nil,
 					Verified:   verified,
 					Err:        err,
+				}
+				results[job.Index] = result
+				if fullCollectionTargetError(result) == nil {
+					cache.SetWithTTL(job.Name, result, lookupCacheTTL(result.Expiration.Sub(now)))
 				}
 			}
 		})
@@ -122,6 +147,17 @@ sendJobs:
 		snapshot.Err = firstLookupErr
 	}
 	return snapshot
+}
+
+func lookupCacheTTL(expirationRemaining time.Duration) time.Duration {
+	switch {
+	case expirationRemaining > distantExpirationThreshold:
+		return distantLookupCacheTTL
+	case expirationRemaining > nearExpirationThreshold:
+		return nearLookupCacheTTL
+	default:
+		return criticalLookupCacheTTL
+	}
 }
 
 func lookupExpiration(ctx context.Context, lookup ExpirationLookup, name string) (time.Time, bool, string, error) {

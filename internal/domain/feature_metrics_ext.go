@@ -19,6 +19,7 @@ func NewFeatureMetricHandlers() featurekit.FeatureMetricHandlers[Snapshot] {
 func CollectFeatureMetrics(ctx featurekit.FeatureMetricsContext[Snapshot], ch chan<- prometheus.Metric, snapshot Snapshot, now time.Time) {
 	collectSourceMetrics(ctx, ch, rdapMetricIDs, snapshot.RDAPResult, snapshot.RDAPValid)
 	collectSourceMetrics(ctx, ch, whoisMetricIDs, snapshot.WHOISResult, snapshot.WHOISValid)
+	featurekit.CollectTTLCacheMetrics(ctx, ch, registrationCache, snapshot.CacheStats)
 
 	ch <- prometheus.MustNewConstMetric(
 		ctx.Descriptors.Get(metricDomainConfiguredTotal),

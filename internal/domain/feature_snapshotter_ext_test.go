@@ -41,3 +41,22 @@ func TestClassifySourceErrorsKeepsEmptyRDAPSourceHealthy(t *testing.T) {
 		t.Fatal("WHOIS classification used = true, want false without WHOIS targets")
 	}
 }
+
+func TestLatestSourceLookupTime(t *testing.T) {
+	t.Parallel()
+
+	older := time.Unix(1_700_000_000, 0)
+	newer := older.Add(time.Hour)
+	snapshot := domaincheck.Snapshot{Domains: []domaincheck.Result{
+		{Source: domaincheck.SourceRDAP, LookupTime: older},
+		{Source: domaincheck.SourceWHOIS, LookupTime: newer},
+		{Source: domaincheck.SourceRDAP, LookupTime: newer},
+	}}
+
+	if got := latestSourceLookupTime(snapshot, domaincheck.SourceRDAP); !got.Equal(newer) {
+		t.Fatalf("latest RDAP lookup time = %v, want %v", got, newer)
+	}
+	if got := latestSourceLookupTime(snapshot, domaincheck.SourceWHOIS); !got.Equal(newer) {
+		t.Fatalf("latest WHOIS lookup time = %v, want %v", got, newer)
+	}
+}

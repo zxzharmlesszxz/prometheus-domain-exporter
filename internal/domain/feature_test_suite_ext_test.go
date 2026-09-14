@@ -103,6 +103,15 @@ func testCollectorExportsSnapshot(t *testing.T, suite *FeatureTestSuite) {
 				},
 			},
 		},
+		CacheStats: featurekit.TTLCacheStats{
+			Entries: 2,
+			Hits:    11,
+			Misses:  2,
+			Sets:    4,
+			Deletes: 1,
+			Expired: 3,
+			Clears:  1,
+		},
 		RDAPResult: framework.FileScrapeResult{
 			Path:                  "rdap",
 			Up:                    true,
@@ -131,6 +140,18 @@ func testCollectorExportsSnapshot(t *testing.T, suite *FeatureTestSuite) {
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupTimestamp), labels, float64(now.Unix()))
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainExpirationTimestamp), labels, float64(expiration.Unix()))
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainExpirationRemaining), labels, expiration.Sub(now).Seconds())
+	cacheLabels := map[string]string{"cache": registrationCache}
+	for metric, want := range map[string]float64{
+		featurekit.TTLCacheMetricEntries: 2,
+		featurekit.TTLCacheMetricHits:    11,
+		featurekit.TTLCacheMetricMisses:  2,
+		featurekit.TTLCacheMetricSets:    4,
+		featurekit.TTLCacheMetricDeletes: 1,
+		featurekit.TTLCacheMetricExpired: 3,
+		featurekit.TTLCacheMetricClears:  1,
+	} {
+		exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metric), cacheLabels, want)
+	}
 	for _, source := range []struct {
 		name      string
 		metricIDs featurekit.FileScrapeMetricIDs
@@ -143,6 +164,10 @@ func testCollectorExportsSnapshot(t *testing.T, suite *FeatureTestSuite) {
 		exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", source.metricIDs.Valid), sourceLabels, 1)
 		exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", source.metricIDs.ReadErrorsTotal), sourceLabels, 0)
 		exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", source.metricIDs.ParseErrorsTotal), sourceLabels, 0)
+		metricName := suite.MetricName(testFeatureName, "", source.metricIDs.MTimeSeconds)
+		if got := exportertest.MetricFamily(t, families, metricName).GetHelp(); got != "Unix timestamp represented by the current "+source.name+" source-health snapshot." {
+			t.Fatalf("%s help = %q", metricName, got)
+		}
 	}
 	exportertest.AssertMetricValue(t, families, testLastSuccess, nil, 1)
 	exportertest.AssertMetricValue(t, families, testLastTimestamp, nil, float64(now.Unix()))
