@@ -1,7 +1,7 @@
 services:
   exporter:
     command:
-      - --web.listen-address=:${COMPOSE_EXPORTER_PORT:-9853}
+      - --web.listen-address=:9853
       - --${FEATURE_NAME:-domain}.config-file=${FEATURE_CONFIG_CONTAINER_PATH:-/etc/prometheus/prometheus-domain-exporter.yml}
       - --${FEATURE_NAME:-domain}.refresh-interval=1h
       - --${FEATURE_NAME:-domain}.target=example.com

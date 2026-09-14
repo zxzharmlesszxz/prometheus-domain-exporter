@@ -3,16 +3,20 @@ services:
     build:
       context: .
       args:
-        LDFLAGS: ${LDFLAGS:-}
+        VERSION: ${VERSION:-dev}
+        BRANCH: ${BRANCH:-dev}
+        REVISION: ${REVISION:-dev}
+        BUILD_USER: ${BUILD_USER:-compose}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
     command:
-      - --web.listen-address=:${COMPOSE_EXPORTER_PORT:-9853}
+      - --web.listen-address=:9853
       - --${FEATURE_NAME:-domain}.config-file=${FEATURE_CONFIG_CONTAINER_PATH:-/etc/prometheus/prometheus-domain-exporter.yml}
       - --${FEATURE_NAME:-domain}.refresh-interval=1h
     configs:
       - source: feature_config
         target: ${FEATURE_CONFIG_CONTAINER_PATH:-/etc/prometheus/prometheus-domain-exporter.yml}
     ports:
-      - "127.0.0.1:${COMPOSE_EXPORTER_PORT:-9853}:${COMPOSE_EXPORTER_PORT:-9853}"
+      - "127.0.0.1:${COMPOSE_EXPORTER_HOST_PORT:-9853}:9853"
 
   prometheus:
     image: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.14.0}
@@ -46,6 +50,7 @@ services:
         target: /etc/grafana/provisioning/dashboards/dashboards.yml
     volumes:
       - ./examples/grafana/:/var/lib/grafana/dashboards/:ro
+      - ./examples/grafana/alerting/:/etc/grafana/provisioning/alerting/:ro
     depends_on:
       prometheus:
         condition: service_started
@@ -66,7 +71,7 @@ configs:
         - job_name: ${FEATURE_NAME:-domain}-exporter
           static_configs:
             - targets:
-                - exporter:${COMPOSE_EXPORTER_PORT:-9853}
+                - exporter:9853
   grafana_prometheus_datasource:
     content: |
       apiVersion: 1

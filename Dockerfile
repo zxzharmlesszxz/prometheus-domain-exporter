@@ -1,10 +1,14 @@
-FROM golang:1.27.0-alpine3.24 AS build
+FROM golang:1.27.1-alpine3.24 AS build
 
 WORKDIR /src
 
-ARG LDFLAGS
 ARG TARGETOS
 ARG TARGETARCH
+ARG VERSION
+ARG BRANCH
+ARG REVISION
+ARG BUILD_USER
+ARG BUILD_DATE
 ARG BUILDER_PACKAGES="make=4.4.1-r4"
 
 RUN apk add --no-cache ${BUILDER_PACKAGES}
@@ -17,7 +21,11 @@ RUN make build \
     BUILD_OUTPUT=dist/prometheus-domain-exporter \
     GOOS=${TARGETOS} \
     GOARCH=${TARGETARCH} \
-    ${LDFLAGS:+LDFLAGS="${LDFLAGS}"}
+    ${VERSION:+VERSION="${VERSION}"} \
+    ${BRANCH:+BRANCH="${BRANCH}"} \
+    ${REVISION:+REVISION="${REVISION}"} \
+    ${BUILD_USER:+BUILD_USER="${BUILD_USER}"} \
+    ${BUILD_DATE:+BUILD_DATE="${BUILD_DATE}"}
 
 FROM alpine:3.24 AS base
 
@@ -32,9 +40,7 @@ EXPOSE 9853
 
 USER nobody
 
-ENV HEALTHCHECK_URL=http://127.0.0.1:9853/healthz
-
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD wget -q -T 2 --spider "${HEALTHCHECK_URL}" || exit 1
+    CMD wget -q -T 2 --spider http://127.0.0.1:9853/healthz || exit 1
 
 ENTRYPOINT ["/usr/local/bin/prometheus-domain-exporter"]
