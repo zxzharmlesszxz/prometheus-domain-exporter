@@ -18,6 +18,7 @@ const (
 
 var rdapMetricIDs = featurekit.FileScrapeMetricIDsFor(metricRDAPSource)
 var whoisMetricIDs = featurekit.FileScrapeMetricIDsFor(metricWHOISSource)
+var registrationLastKnownGoodMetricIDs = featurekit.LastKnownGoodMetricIDsFor(registrationCache)
 
 var domainLabels = []string{
 	"domain",
@@ -31,6 +32,7 @@ var domainSourceLabels = []string{
 var rdapMetricSpecs = registrationSourceMetricSpecs(metricRDAPSource)
 var whoisMetricSpecs = registrationSourceMetricSpecs(metricWHOISSource)
 var cacheMetricSpecs = featurekit.TTLCacheMetricSpecs(nil)
+var lastKnownGoodMetricSpecs = featurekit.LastKnownGoodMetricSpecs(registrationCache, domainLabels)
 
 func registrationSourceMetricSpecs(source string) []featurekit.FeatureMetricSpec {
 	ids := featurekit.FileScrapeMetricIDsFor(source)
@@ -102,4 +104,4 @@ var domainMetricSpecs = []featurekit.FeatureMetricSpec{
 	},
 }
 
-var featureMetricSpecs = append(append(append(append([]featurekit.FeatureMetricSpec{}, domainMetricSpecs...), rdapMetricSpecs...), whoisMetricSpecs...), cacheMetricSpecs...)
+var featureMetricSpecs = append(append(append(append(append([]featurekit.FeatureMetricSpec{}, domainMetricSpecs...), rdapMetricSpecs...), whoisMetricSpecs...), cacheMetricSpecs...), lastKnownGoodMetricSpecs...)

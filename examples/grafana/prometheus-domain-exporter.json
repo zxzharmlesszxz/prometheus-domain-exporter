@@ -3639,7 +3639,7 @@
         "spec": {
           "id": 34,
           "title": "Expiring Soon",
-          "description": "Domains expiring in less than 14 days",
+          "description": "Unexpired domains with less than 30 days remaining",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -3658,7 +3658,7 @@
                       "spec": {
                         "editorMode": "code",
                         "exemplar": false,
-                        "expr": "count((domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 14 * 24 * 60 * 60) and (domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 0)) or vector(0)",
+                        "expr": "count((domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 30 * 24 * 60 * 60) and (domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 0)) or vector(0)",
                         "instant": true,
                         "legendFormat": "expiring soon",
                         "range": false
@@ -4648,15 +4648,11 @@
                         "color": "red"
                       },
                       {
-                        "value": 14,
+                        "value": 7,
                         "color": "orange"
                       },
                       {
                         "value": 30,
-                        "color": "yellow"
-                      },
-                      {
-                        "value": 90,
                         "color": "green"
                       }
                     ]
@@ -4794,7 +4790,7 @@
         "spec": {
           "id": 47,
           "title": "Domain Status",
-          "description": "Current status, expiry, and lookup timing for every configured domain target.",
+          "description": "Current status, expiry, and lookup state for every configured domain target.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -4904,7 +4900,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "label_join(label_replace(domain_registration_lookup_success{job=~\"$job\"} == 0, \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_success{job=~\"$job\"} == 1) and on (instance, domain) (domain_registration_lookup_verified{job=~\"$job\"} == 0), \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain) (domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 0), \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain) ((domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 0) and (domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 1209600)), \"status\", \"warn\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain) (domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 1209600), \"status\", \"ok\", \"domain\", \".*\"), \"target\", \" / \", \"instance\", \"domain\")",
+                        "expr": "label_join(label_replace(domain_registration_lookup_success{job=~\"$job\"} == 0, \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_success{job=~\"$job\"} == 1) and on (instance, domain) (domain_registration_lookup_verified{job=~\"$job\"} == 0), \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain) (domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 604800), \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain) ((domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 604800) and (domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 2592000)), \"status\", \"warn\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain) (domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 2592000), \"status\", \"ok\", \"domain\", \".*\"), \"target\", \" / \", \"instance\", \"domain\")",
                         "format": "table",
                         "instant": true,
                         "legendFormat": "__auto",
@@ -5016,19 +5012,15 @@
                     "mode": "absolute",
                     "steps": [
                       {
-                        "value": 0,
+                        "value": null,
                         "color": "red"
                       },
                       {
-                        "value": 14,
+                        "value": 7,
                         "color": "orange"
                       },
                       {
                         "value": 30,
-                        "color": "yellow"
-                      },
-                      {
-                        "value": 90,
                         "color": "green"
                       }
                     ]
@@ -5069,7 +5061,7 @@
                       },
                       {
                         "id": "custom.width",
-                        "value": 130
+                        "value": 115
                       }
                     ]
                   },
@@ -5090,7 +5082,7 @@
                       },
                       {
                         "id": "custom.width",
-                        "value": 160
+                        "value": 135
                       }
                     ]
                   },
@@ -5129,7 +5121,7 @@
                       },
                       {
                         "id": "custom.width",
-                        "value": 180
+                        "value": 155
                       }
                     ]
                   },
@@ -5168,7 +5160,7 @@
                       },
                       {
                         "id": "custom.width",
-                        "value": 190
+                        "value": 165
                       }
                     ]
                   },
@@ -5212,7 +5204,7 @@
                       },
                       {
                         "id": "custom.width",
-                        "value": 150
+                        "value": 90
                       }
                     ]
                   }
@@ -5699,7 +5691,7 @@
         "spec": {
           "id": 48,
           "title": "Domain Status",
-          "description": "Current status, expiry, and lookup timing for every configured domain target.",
+          "description": "Current status, expiry, lookup timing, and last-known-good data health for every configured domain target.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -5809,7 +5801,7 @@
                       },
                       "spec": {
                         "editorMode": "code",
-                        "expr": "label_join(label_replace(label_replace(domain_registration_lookup_success{job=~\"$job\"} == 0, \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_success{job=~\"$job\"} == 1) and on (instance, domain, environment) (domain_registration_lookup_verified{job=~\"$job\"} == 0), \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain, environment) (domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 0), \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain, environment) ((domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 0) and (domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 1209600)), \"status\", \"warn\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain, environment) (domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 1209600), \"status\", \"ok\", \"domain\", \".*\"), \"environment\", \"unknown\", \"environment\", \"^$\"), \"target\", \" / \", \"instance\", \"environment\", \"domain\")",
+                        "expr": "label_join(label_replace(label_replace(domain_registration_lookup_success{job=~\"$job\"} == 0, \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_success{job=~\"$job\"} == 1) and on (instance, domain, environment) (domain_registration_lookup_verified{job=~\"$job\"} == 0), \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain, environment) (domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 604800), \"status\", \"fail\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain, environment) ((domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 604800) and (domain_registration_expiration_remaining_seconds{job=~\"$job\"} < 2592000)), \"status\", \"warn\", \"domain\", \".*\") or label_replace((domain_registration_lookup_verified{job=~\"$job\"} == 1) and on (instance, domain, environment) (domain_registration_expiration_remaining_seconds{job=~\"$job\"} >= 2592000), \"status\", \"ok\", \"domain\", \".*\"), \"environment\", \"unknown\", \"environment\", \"^$\"), \"target\", \" / \", \"instance\", \"environment\", \"domain\")",
                         "format": "table",
                         "instant": true,
                         "legendFormat": "__auto",
@@ -5863,6 +5855,75 @@
                       }
                     },
                     "refId": "G",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_PROMETHEUS}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_join(label_replace(label_replace(domain_registration_data_available{job=~\"$job\"} == 0, \"data_state\", \"unavailable\", \"domain\", \".*\") or label_replace((domain_registration_data_available{job=~\"$job\"} == 1) and on (instance, domain, environment) (domain_registration_data_stale{job=~\"$job\"} == 1), \"data_state\", \"stale\", \"domain\", \".*\") or label_replace((domain_registration_data_available{job=~\"$job\"} == 1) and on (instance, domain, environment) (domain_registration_data_stale{job=~\"$job\"} == 0), \"data_state\", \"fresh\", \"domain\", \".*\"), \"environment\", \"unknown\", \"environment\", \"^$\"), \"target\", \" / \", \"instance\", \"environment\", \"domain\")",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "__auto",
+                        "range": false
+                      }
+                    },
+                    "refId": "H",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_PROMETHEUS}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_join(label_replace(time() - (domain_registration_last_success_timestamp_seconds{job=~\"$job\"} > 0), \"environment\", \"unknown\", \"environment\", \"^$\"), \"target\", \" / \", \"instance\", \"environment\", \"domain\")",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "__auto",
+                        "range": false
+                      }
+                    },
+                    "refId": "I",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${DS_PROMETHEUS}"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "label_join(label_replace(domain_registration_consecutive_failures{job=~\"$job\"}, \"environment\", \"unknown\", \"environment\", \"^$\"), \"target\", \" / \", \"instance\", \"environment\", \"domain\")",
+                        "format": "table",
+                        "instant": true,
+                        "legendFormat": "__auto",
+                        "range": false
+                      }
+                    },
+                    "refId": "J",
                     "hidden": false
                   }
                 }
@@ -5930,22 +5991,47 @@
                         "instance 6": true,
                         "domain 5": true,
                         "domain 6": true,
+                        "environment 7": true,
+                        "environment 8": true,
+                        "environment 9": true,
+                        "Time 7": true,
+                        "Time 8": true,
+                        "Time 9": true,
+                        "__name__ 7": true,
+                        "__name__ 8": true,
+                        "__name__ 9": true,
+                        "job 7": true,
+                        "job 8": true,
+                        "job 9": true,
+                        "target 7": true,
+                        "target 8": true,
+                        "target 9": true,
+                        "instance 7": true,
+                        "instance 8": true,
+                        "instance 9": true,
+                        "domain 7": true,
+                        "domain 8": true,
+                        "domain 9": true,
                         "Value #E": true,
                         "Value #G": true,
+                        "Value #H": true,
                         "environment": true
                       },
                       "includeByName": {},
                       "indexByName": {
-                        "status": 0,
-                        "Value": 1,
-                        "Value #A": 1,
-                        "Value #F": 2,
-                        "Value #B": 3,
-                        "Value #C": 4,
-                        "Value #D": 5,
-                        "domain": 6,
-                        "source": 8,
-                        "instance": 9
+                        "domain 10": 0,
+                        "instance 10": 1,
+                        "status": 2,
+                        "source": 3,
+                        "Value": 4,
+                        "Value #A": 4,
+                        "Value #F": 5,
+                        "Value #B": 6,
+                        "Value #C": 7,
+                        "Value #D": 8,
+                        "data_state": 9,
+                        "Value #I": 10,
+                        "Value #J": 11
                       },
                       "orderByMode": "manual",
                       "renameByName": {
@@ -5954,7 +6040,9 @@
                         "Value #F": "expires_at",
                         "Value #B": "lookup_age",
                         "Value #C": "lookup_success",
-                        "Value #D": "lookup_verified"
+                        "Value #D": "lookup_verified",
+                        "Value #I": "data_age",
+                        "Value #J": "refresh_failures"
                       }
                     }
                   }
@@ -5985,19 +6073,15 @@
                     "mode": "absolute",
                     "steps": [
                       {
-                        "value": 0,
+                        "value": null,
                         "color": "red"
                       },
                       {
-                        "value": 14,
+                        "value": 7,
                         "color": "orange"
                       },
                       {
                         "value": 30,
-                        "color": "yellow"
-                      },
-                      {
-                        "value": 90,
                         "color": "green"
                       }
                     ]
@@ -6038,7 +6122,7 @@
                       },
                       {
                         "id": "custom.width",
-                        "value": 130
+                        "value": 115
                       }
                     ]
                   },
@@ -6055,7 +6139,7 @@
                       },
                       {
                         "id": "custom.width",
-                        "value": 210
+                        "value": 180
                       }
                     ]
                   },
@@ -6076,7 +6160,7 @@
                       },
                       {
                         "id": "custom.width",
-                        "value": 160
+                        "value": 135
                       }
                     ]
                   },
@@ -6115,7 +6199,7 @@
                       },
                       {
                         "id": "custom.width",
-                        "value": 180
+                        "value": 155
                       }
                     ]
                   },
@@ -6154,7 +6238,111 @@
                       },
                       {
                         "id": "custom.width",
-                        "value": 190
+                        "value": 165
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "scope": "series",
+                      "options": "data_state"
+                    },
+                    "properties": [
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "value",
+                            "options": {
+                              "fresh": {
+                                "text": "FRESH",
+                                "color": "green",
+                                "index": 0
+                              },
+                              "stale": {
+                                "text": "STALE",
+                                "color": "yellow",
+                                "index": 1
+                              },
+                              "unavailable": {
+                                "text": "UNAVAILABLE",
+                                "color": "red",
+                                "index": 2
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-background"
+                        }
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 135
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "scope": "series",
+                      "options": "data_age"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "s"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 0
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 125
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "scope": "series",
+                      "options": "refresh_failures"
+                    },
+                    "properties": [
+                      {
+                        "id": "thresholds",
+                        "value": {
+                          "mode": "absolute",
+                          "steps": [
+                            {
+                              "value": 0,
+                              "color": "green"
+                            },
+                            {
+                              "value": 1,
+                              "color": "yellow"
+                            },
+                            {
+                              "value": 3,
+                              "color": "red"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-background"
+                        }
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 155
                       }
                     ]
                   },
@@ -6198,7 +6386,7 @@
                       },
                       {
                         "id": "custom.width",
-                        "value": 150
+                        "value": 90
                       }
                     ]
                   },
@@ -6211,7 +6399,7 @@
                     "properties": [
                       {
                         "id": "custom.width",
-                        "value": 120
+                        "value": 80
                       }
                     ]
                   }
@@ -6974,13 +7162,13 @@
           "refresh": "onDashboardLoad",
           "regex": "",
           "current": {
-            "text": "prometheus-domain-exporter",
-            "value": "prometheus-domain-exporter"
+            "text": "All",
+            "value": "$__all"
           },
           "options": [],
           "multi": true,
           "includeAll": true,
-          "allValue": ".*domain.*",
+          "allValue": "^(prometheus[_-])?domain[_-]exporter$",
           "sort": "alphabeticalAsc",
           "hide": "dontHide",
           "skipUrlSync": false,

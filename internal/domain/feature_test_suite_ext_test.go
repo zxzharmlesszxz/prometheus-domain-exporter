@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	framework "github.com/zxzharmlesszxz/prometheus-exporter-framework/exporter"
 	"github.com/zxzharmlesszxz/prometheus-exporter-framework/exporter/exportertest"
 	"github.com/zxzharmlesszxz/prometheus-exporter-framework/exporter/exportertest/featuretest"
@@ -25,20 +26,12 @@ func TestFeatureContract(t *testing.T) {
 func NewFeatureTestSpec() FeatureTestSpec {
 	return FeatureTestSpec{
 		SuccessfulSnapshot: func(at time.Time) Snapshot {
+			expiration := at.Add(24 * time.Hour)
 			return Snapshot{
 				domain: domaincheck.Snapshot{
 					AttemptTime: at,
 					Success:     true,
-					Domains: []domaincheck.Result{
-						{
-							Name:       "example.com",
-							LookupTime: at,
-							Expiration: at.Add(24 * time.Hour),
-							Source:     domaincheck.SourceRDAP,
-							Success:    true,
-							Verified:   true,
-						},
-					},
+					Domains:     []domaincheck.Result{successfulDomainResult("example.com", domaincheck.SourceRDAP, at, expiration)},
 				},
 			}
 		},
@@ -67,6 +60,25 @@ func NewFeatureTestSpec() FeatureTestSpec {
 	}
 }
 
+func successfulDomainResult(name, source string, at, expiration time.Time) domaincheck.Result {
+	return domaincheck.Result{
+		Name:       name,
+		LookupTime: at,
+		Expiration: expiration,
+		Source:     source,
+		Success:    true,
+		Verified:   true,
+		LastKnownGood: featurekit.LastKnownGoodResult[domaincheck.RegistrationData]{
+			Value: domaincheck.RegistrationData{
+				Expiration: expiration,
+			},
+			Available:   true,
+			LastSuccess: at,
+			LastAttempt: at,
+		},
+	}
+}
+
 func RegisterFeatureTests(suite *FeatureTestSuite) {
 	suite.Register("collector_exports_snapshot", func(t *testing.T) { testCollectorExportsSnapshot(t, suite) })
 	suite.Register("collector_exports_failed_domain_lookup", func(t *testing.T) { testCollectorExportsFailedDomainLookup(t, suite) })
@@ -85,22 +97,8 @@ func testCollectorExportsSnapshot(t *testing.T, suite *FeatureTestSuite) {
 			AttemptTime: now,
 			Success:     true,
 			Domains: []domaincheck.Result{
-				{
-					Name:       "example.com",
-					LookupTime: now,
-					Expiration: expiration,
-					Source:     domaincheck.SourceRDAP,
-					Success:    true,
-					Verified:   true,
-				},
-				{
-					Name:       "example.ws",
-					LookupTime: now,
-					Expiration: expiration,
-					Source:     domaincheck.SourceWHOIS,
-					Success:    true,
-					Verified:   true,
-				},
+				successfulDomainResult("example.com", domaincheck.SourceRDAP, now, expiration),
+				successfulDomainResult("example.ws", domaincheck.SourceWHOIS, now, expiration),
 			},
 		},
 		CacheStats: featurekit.TTLCacheStats{
@@ -138,8 +136,10 @@ func testCollectorExportsSnapshot(t *testing.T, suite *FeatureTestSuite) {
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupSourceInfo), rdapLabels, 1)
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupSourceInfo), whoisLabels, 1)
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainLookupTimestamp), labels, float64(now.Unix()))
-	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainExpirationTimestamp), labels, float64(expiration.Unix()))
-	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metricDomainExpirationRemaining), labels, expiration.Sub(now).Seconds())
+	assertRegistrationDataMetrics(t, suite, families, labels, expiration, now, now)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", registrationLastKnownGoodMetricIDs.ConsecutiveFailures), labels, 0)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", registrationLastKnownGoodMetricIDs.DataAvailable), labels, 1)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", registrationLastKnownGoodMetricIDs.DataStale), labels, 0)
 	cacheLabels := map[string]string{"cache": registrationCache}
 	for metric, want := range map[string]float64{
 		featurekit.TTLCacheMetricEntries: 2,
@@ -176,6 +176,8 @@ func testCollectorExportsSnapshot(t *testing.T, suite *FeatureTestSuite) {
 
 func testCollectorExportsFailedDomainLookup(t *testing.T, suite *FeatureTestSuite) {
 	now := time.Unix(1_700_000_000, 0)
+	expiration := now.Add(45 * 24 * time.Hour)
+	lastSuccess := now.Add(-2 * time.Hour)
 	collector := suite.NewCollectorWithNow(testFeatureName, testMetricNamespace, slog.New(slog.NewTextHandler(io.Discard, nil)), suite.NewFakeSnapshotter(Snapshot{
 		domain: domaincheck.Snapshot{
 			AttemptTime: now,
@@ -187,6 +189,15 @@ func testCollectorExportsFailedDomainLookup(t *testing.T, suite *FeatureTestSuit
 					Source:     domaincheck.SourceRDAP,
 					Success:    false,
 					Err:        errors.New("rdap unavailable"),
+					LastKnownGood: featurekit.LastKnownGoodResult[domaincheck.RegistrationData]{
+						Value: domaincheck.RegistrationData{
+							Expiration: expiration,
+						},
+						Available:           true,
+						LastSuccess:         lastSuccess,
+						LastAttempt:         now,
+						ConsecutiveFailures: 2,
+					},
 				},
 			},
 			Err: errors.New("lookup example.com registration expiration: rdap unavailable"),
@@ -210,11 +221,20 @@ func testCollectorExportsFailedDomainLookup(t *testing.T, suite *FeatureTestSuit
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.Up), sourceLabels, 0)
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.Valid), sourceLabels, 0)
 	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", rdapMetricIDs.ReadErrorsTotal), sourceLabels, 1)
-	if _, ok := exportertest.MetricValue(families, suite.MetricName(testFeatureName, "", metricDomainExpirationTimestamp), labels); ok {
-		t.Fatal("expiration timestamp metric was emitted for failed lookup")
-	}
-	if _, ok := exportertest.MetricValue(families, suite.MetricName(testFeatureName, "", metricDomainExpirationRemaining), labels); ok {
-		t.Fatal("expiration remaining metric was emitted for failed lookup")
+	assertRegistrationDataMetrics(t, suite, families, labels, expiration, now, lastSuccess)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", registrationLastKnownGoodMetricIDs.ConsecutiveFailures), labels, 2)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", registrationLastKnownGoodMetricIDs.DataAvailable), labels, 1)
+	exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", registrationLastKnownGoodMetricIDs.DataStale), labels, 0)
+}
+
+func assertRegistrationDataMetrics(t *testing.T, suite *FeatureTestSuite, families []*dto.MetricFamily, labels map[string]string, expiration, now, lastSuccess time.Time) {
+	t.Helper()
+	for metric, want := range map[string]float64{
+		metricDomainExpirationTimestamp:                                float64(expiration.Unix()),
+		metricDomainExpirationRemaining:                                expiration.Sub(now).Seconds(),
+		registrationLastKnownGoodMetricIDs.LastSuccessTimestampSeconds: float64(lastSuccess.Unix()),
+	} {
+		exportertest.AssertMetricValue(t, families, suite.MetricName(testFeatureName, "", metric), labels, want)
 	}
 }
 

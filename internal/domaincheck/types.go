@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/zxzharmlesszxz/prometheus-exporter-framework/exporter/featurekit"
 )
 
 const (
@@ -12,15 +14,20 @@ const (
 )
 
 type Result struct {
-	Name       string
-	LookupTime time.Time
-	Expiration time.Time
-	Source     string
+	Name          string
+	LookupTime    time.Time
+	Expiration    time.Time
+	Source        string
+	LastKnownGood featurekit.LastKnownGoodResult[RegistrationData]
 	// Success means the registration lookup completed without a transport, bootstrap, or service error.
 	Success bool
 	// Verified means the registration source confirmed the domain is registered.
 	Verified bool
 	Err      error
+}
+
+type RegistrationData struct {
+	Expiration time.Time
 }
 
 type ExpirationLookup interface {

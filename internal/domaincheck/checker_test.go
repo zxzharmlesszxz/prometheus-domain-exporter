@@ -206,9 +206,72 @@ func TestCheckerCachesSuccessfulDomainLookup(t *testing.T) {
 	if !second.Domains[0].LookupTime.Equal(now) {
 		t.Fatalf("cached lookup time = %v, want %v", second.Domains[0].LookupTime, now)
 	}
+	if !second.Domains[0].LastKnownGood.Available || !second.Domains[0].LastKnownGood.LastSuccess.Equal(now) {
+		t.Fatalf("cached last known good = %#v, want available data from first lookup", second.Domains[0].LastKnownGood)
+	}
 	stats := checker.CacheStats()
 	if stats.Entries != 1 || stats.Hits != 1 || stats.Misses != 2 || stats.Sets != 2 || stats.Deletes != 1 {
 		t.Fatalf("cache stats = %#v, want one entry, hit, and delete plus two misses and sets", stats)
+	}
+}
+
+func TestCheckerPreservesLastKnownGoodAfterTransientFailure(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_700_000_000, 0)
+	expiration := now.Add(90 * 24 * time.Hour)
+	checker := NewChecker([]string{"example.com"}, DefaultTimeout, 1)
+	checker.Lookup = &countingExpirationLookup{expiration: expiration}
+
+	first := checker.Snapshot(context.Background(), now)
+	checker.cache.Delete("example.com")
+	checker.Lookup = &countingExpirationLookup{err: errors.New("lookup unavailable")}
+	second := checker.Snapshot(context.Background(), now.Add(time.Hour))
+
+	if !first.Success || second.Success {
+		t.Fatalf("snapshot success = %v, %v, want true then false", first.Success, second.Success)
+	}
+	got := second.Domains[0].LastKnownGood
+	if !got.Available || got.Stale || got.ConsecutiveFailures != 1 || !got.Value.Expiration.Equal(expiration) {
+		t.Fatalf("last known good = %#v, want available non-stale expiration with one failure", got)
+	}
+	if !got.LastSuccess.Equal(now) || !got.LastAttempt.Equal(now.Add(time.Hour)) {
+		t.Fatalf("last known good timestamps = %v, %v, want %v, %v", got.LastSuccess, got.LastAttempt, now, now.Add(time.Hour))
+	}
+}
+
+func TestCheckerMarksLastKnownGoodStale(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_700_000_000, 0)
+	checker := NewChecker([]string{"example.com"}, DefaultTimeout, 1)
+	checker.Lookup = &countingExpirationLookup{expiration: now.Add(90 * 24 * time.Hour)}
+	checker.Snapshot(context.Background(), now)
+	checker.cache.Delete("example.com")
+	checker.Lookup = &countingExpirationLookup{err: errors.New("lookup unavailable")}
+
+	snapshot := checker.Snapshot(context.Background(), now.Add(registrationDataStaleAfter))
+	if !snapshot.Domains[0].LastKnownGood.Stale {
+		t.Fatalf("last known good = %#v, want stale data", snapshot.Domains[0].LastKnownGood)
+	}
+}
+
+func TestCheckerClearsLastKnownGoodWhenDomainIsNotRegistered(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(1_700_000_000, 0)
+	checker := NewChecker([]string{"example.com"}, DefaultTimeout, 1)
+	checker.Lookup = &countingExpirationLookup{expiration: now.Add(90 * 24 * time.Hour)}
+	checker.Snapshot(context.Background(), now)
+	checker.cache.Delete("example.com")
+	checker.Lookup = fakeExpirationLookup{
+		expirations: map[string]time.Time{"example.com": {}},
+		verified:    map[string]bool{"example.com": false},
+	}
+
+	snapshot := checker.Snapshot(context.Background(), now.Add(time.Hour))
+	if snapshot.Success || snapshot.Domains[0].LastKnownGood.Available {
+		t.Fatalf("snapshot = %#v, want failed lookup without last known good data", snapshot)
 	}
 }
 

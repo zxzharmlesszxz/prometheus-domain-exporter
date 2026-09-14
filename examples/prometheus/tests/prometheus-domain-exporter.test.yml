@@ -168,10 +168,16 @@ tests:
     input_series:
       - series: 'domain_registration_lookup_success{job="domain-exporter",instance="exporter:9853",domain="failed.example"}'
         values: '0x40'
+      - series: 'domain_registration_data_available{job="domain-exporter",instance="exporter:9853",domain="unavailable.example"}'
+        values: '0x40'
+      - series: 'domain_registration_data_stale{job="domain-exporter",instance="exporter:9853",domain="stale.example"}'
+        values: '1x40'
       - series: 'domain_registration_expiration_remaining_seconds{job="domain-exporter",instance="exporter:9853",domain="warning.example"}'
         values: '2591999x40'
       - series: 'domain_registration_expiration_remaining_seconds{job="domain-exporter",instance="exporter:9853",domain="critical.example"}'
         values: '604799x40'
+      - series: 'domain_registration_expiration_remaining_seconds{job="domain-exporter",instance="exporter:9853",domain="expired.example"}'
+        values: '-1x40'
     alert_rule_test:
       - eval_time: 16m
         alertname: domainRegistrationLookupFailed
@@ -184,6 +190,28 @@ tests:
             exp_annotations:
               summary: Domain registration lookup failed
               description: prometheus-domain-exporter cannot resolve registration expiration for failed.example.
+      - eval_time: 16m
+        alertname: domainRegistrationDataUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: domain-exporter
+              instance: exporter:9853
+              domain: unavailable.example
+            exp_annotations:
+              summary: Domain registration data is unavailable
+              description: prometheus-domain-exporter has no confirmed registration expiration for unavailable.example.
+      - eval_time: 16m
+        alertname: domainRegistrationDataStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: domain-exporter
+              instance: exporter:9853
+              domain: stale.example
+            exp_annotations:
+              summary: Domain registration data is stale
+              description: The last confirmed registration expiration for stale.example is at least 24 hours old.
       - eval_time: 31m
         alertname: domainRegistrationExpiringSoon
         exp_alerts:
@@ -195,14 +223,6 @@ tests:
             exp_annotations:
               summary: Domain registration expires soon
               description: Domain warning.example registration expires in less than 30 days.
-          - exp_labels:
-              severity: warning
-              job: domain-exporter
-              instance: exporter:9853
-              domain: critical.example
-            exp_annotations:
-              summary: Domain registration expires soon
-              description: Domain critical.example registration expires in less than 30 days.
       - eval_time: 31m
         alertname: domainRegistrationExpiringIn7Days
         exp_alerts:
@@ -212,8 +232,16 @@ tests:
               instance: exporter:9853
               domain: critical.example
             exp_annotations:
-              summary: Domain registration expiring in 7 days
-              description: Domain critical.example registration expires in less than 7 days.
+              summary: Domain registration expiry is critical
+              description: Domain critical.example registration expires in less than 7 days or has already expired.
+          - exp_labels:
+              severity: critical
+              job: domain-exporter
+              instance: exporter:9853
+              domain: expired.example
+            exp_annotations:
+              summary: Domain registration expiry is critical
+              description: Domain expired.example registration expires in less than 7 days or has already expired.
 
   - name: Lookup coverage alert handles missing lookup series without many-to-many matching
     interval: 1m

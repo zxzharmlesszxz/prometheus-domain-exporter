@@ -18,6 +18,7 @@ const (
 	distantLookupCacheTTL       = 24 * time.Hour
 	nearLookupCacheTTL          = 6 * time.Hour
 	criticalLookupCacheTTL      = time.Hour
+	registrationDataStaleAfter  = 24 * time.Hour
 )
 
 type Checker struct {
@@ -26,6 +27,7 @@ type Checker struct {
 	Timeout              time.Duration
 	MaxConcurrentTargets int
 	cache                *featurekit.TTLCache[string, Result]
+	lastKnownGood        *featurekit.LastKnownGood[string, RegistrationData]
 }
 
 func NewChecker(domains []string, lookupTimeout time.Duration, maxConcurrent int) Checker {
@@ -37,6 +39,7 @@ func NewChecker(domains []string, lookupTimeout time.Duration, maxConcurrent int
 		Timeout:              lookupTimeout,
 		MaxConcurrentTargets: maxConcurrent,
 		cache:                featurekit.NewTTLCache[string, Result](0),
+		lastKnownGood:        featurekit.NewLastKnownGood[string, RegistrationData](registrationDataStaleAfter),
 	}
 }
 
@@ -67,6 +70,10 @@ func (c Checker) Snapshot(ctx context.Context, now time.Time) Snapshot {
 	if cache == nil {
 		cache = featurekit.NewTTLCache[string, Result](0)
 	}
+	lastKnownGood := c.lastKnownGood
+	if lastKnownGood == nil {
+		lastKnownGood = featurekit.NewLastKnownGood[string, RegistrationData](registrationDataStaleAfter)
+	}
 
 	results := make([]Result, len(c.Targets))
 	jobs := make(chan domainCheckJob)
@@ -81,6 +88,7 @@ func (c Checker) Snapshot(ctx context.Context, now time.Time) Snapshot {
 		wg.Go(func() {
 			for job := range jobs {
 				if cached, ok := cache.Get(job.Name); ok {
+					cached.LastKnownGood = lastKnownGood.Get(job.Name, now)
 					results[job.Index] = cached
 					continue
 				}
@@ -103,6 +111,7 @@ func (c Checker) Snapshot(ctx context.Context, now time.Time) Snapshot {
 					Verified:   verified,
 					Err:        err,
 				}
+				recordLastKnownGood(lastKnownGood, job.Name, &result, now)
 				results[job.Index] = result
 				if fullCollectionTargetError(result) == nil {
 					cache.SetWithTTL(job.Name, result, lookupCacheTTL(result.Expiration.Sub(now)))
@@ -149,6 +158,18 @@ sendJobs:
 	return snapshot
 }
 
+func recordLastKnownGood(store *featurekit.LastKnownGood[string, RegistrationData], key string, result *Result, now time.Time) {
+	switch {
+	case fullCollectionTargetError(*result) == nil:
+		store.Success(key, RegistrationData{Expiration: result.Expiration}, now)
+	case result.Err == nil && !result.Verified:
+		store.Delete(key)
+	default:
+		store.Failure(key, now)
+	}
+	result.LastKnownGood = store.Get(key, now)
+}
+
 func lookupCacheTTL(expirationRemaining time.Duration) time.Duration {
 	switch {
 	case expirationRemaining > distantExpirationThreshold:
@@ -173,7 +194,7 @@ func fullCollectionTargetError(result Result) error {
 		return result.Err
 	}
 	if !result.Verified {
-		return fmt.Errorf("domain was not verified by RDAP")
+		return fmt.Errorf("domain was not verified by registration source")
 	}
 	if result.Expiration.IsZero() {
 		return fmt.Errorf("registration expiration was not found")

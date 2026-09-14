@@ -28,6 +28,7 @@ func CollectFeatureMetrics(ctx featurekit.FeatureMetricsContext[Snapshot], ch ch
 	)
 
 	for _, domain := range snapshot.domain.Domains {
+		featurekit.CollectLastKnownGoodMetrics(ctx, ch, registrationLastKnownGoodMetricIDs, domain.LastKnownGood, domain.Name)
 		ch <- prometheus.MustNewConstMetric(
 			ctx.Descriptors.Get(metricDomainLookupSourceInfo),
 			prometheus.GaugeValue,
@@ -53,19 +54,20 @@ func CollectFeatureMetrics(ctx featurekit.FeatureMetricsContext[Snapshot], ch ch
 			framework.UnixTimestamp(domain.LookupTime),
 			domain.Name,
 		)
-		if !domain.Success || domain.Expiration.IsZero() {
+		if !domain.LastKnownGood.Available || domain.LastKnownGood.Value.Expiration.IsZero() {
 			continue
 		}
+		expiration := domain.LastKnownGood.Value.Expiration
 		ch <- prometheus.MustNewConstMetric(
 			ctx.Descriptors.Get(metricDomainExpirationTimestamp),
 			prometheus.GaugeValue,
-			float64(domain.Expiration.Unix()),
+			float64(expiration.Unix()),
 			domain.Name,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			ctx.Descriptors.Get(metricDomainExpirationRemaining),
 			prometheus.GaugeValue,
-			domain.Expiration.Sub(now).Seconds(),
+			expiration.Sub(now).Seconds(),
 			domain.Name,
 		)
 	}

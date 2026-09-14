@@ -109,8 +109,26 @@ groups:
           summary: Domain registration lookup failed
           description: prometheus-domain-exporter cannot resolve registration expiration for {{ $labels.domain }}.
 
+      - alert: domainRegistrationDataUnavailable
+        expr: domain_registration_data_available{job=~"^(prometheus[_-])?domain[_-]exporter$"} == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Domain registration data is unavailable
+          description: prometheus-domain-exporter has no confirmed registration expiration for {{ $labels.domain }}.
+
+      - alert: domainRegistrationDataStale
+        expr: domain_registration_data_stale{job=~"^(prometheus[_-])?domain[_-]exporter$"} == 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Domain registration data is stale
+          description: The last confirmed registration expiration for {{ $labels.domain }} is at least 24 hours old.
+
       - alert: domainRegistrationExpiringSoon
-        expr: domain_registration_expiration_remaining_seconds{job=~"^(prometheus[_-])?domain[_-]exporter$"} < 30 * 24 * 60 * 60
+        expr: domain_registration_expiration_remaining_seconds{job=~"^(prometheus[_-])?domain[_-]exporter$"} >= 7 * 24 * 60 * 60 and domain_registration_expiration_remaining_seconds{job=~"^(prometheus[_-])?domain[_-]exporter$"} < 30 * 24 * 60 * 60
         for: 30m
         labels:
           severity: warning
@@ -124,8 +142,8 @@ groups:
         labels:
           severity: critical
         annotations:
-          summary: Domain registration expiring in 7 days
-          description: Domain {{ $labels.domain }} registration expires in less than 7 days.
+          summary: Domain registration expiry is critical
+          description: Domain {{ $labels.domain }} registration expires in less than 7 days or has already expired.
 
       - alert: domainRegistrationLookupIncomplete
         expr: max by (instance) (domain_exporter_configured_domains{job=~"^(prometheus[_-])?domain[_-]exporter$"}) - (count by (instance) (domain_registration_lookup_success{job=~"^(prometheus[_-])?domain[_-]exporter$"}) or max by (instance) (domain_exporter_configured_domains{job=~"^(prometheus[_-])?domain[_-]exporter$"} * 0)) > 0
